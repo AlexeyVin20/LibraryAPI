@@ -41,5 +41,9 @@ namespace LibraryAPI.Models
         public int AvailableCopies { get; set; }
         public DateTime DateAdded { get; set; }
         public DateTime DateModified { get; set; }
+
+        // Внешний ключ к полке
+        public int? ShelfId { get; set; }
+        public Shelf Shelf { get; set; }
     }
 }

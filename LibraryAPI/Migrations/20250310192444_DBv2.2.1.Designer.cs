@@ -3,6 +3,7 @@ using System;
 using LibraryAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LibraryAPI.Migrations
 {
     [DbContext(typeof(LibraryDbContext))]
-    partial class LibraryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250310192444_DBv2.2.1")]
+    partial class DBv221
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -133,9 +136,6 @@ namespace LibraryAPI.Migrations
                     b.Property<int?>("PageCount")
                         .HasColumnType("integer");
 
-                    b.Property<int>("Position")
-                        .HasColumnType("integer");
-
                     b.Property<decimal?>("Price")
                         .HasColumnType("numeric");
 
@@ -231,9 +231,6 @@ namespace LibraryAPI.Migrations
                     b.Property<int?>("Periodicity")
                         .HasColumnType("integer");
 
-                    b.Property<int>("Position")
-                        .HasColumnType("integer");
-
                     b.Property<DateTime?>("PublicationDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -244,9 +241,6 @@ namespace LibraryAPI.Migrations
                     b.Property<string>("RegistrationNumber")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
-
-                    b.Property<int>("ShelfId")
-                        .HasColumnType("integer");
 
                     b.Property<string>("TargetAudience")
                         .HasMaxLength(100)

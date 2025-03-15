@@ -20,12 +20,10 @@ namespace LibraryAPI.Controllers
             _context = context;
         }
 
-        // GET: api/books
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<ActionResult<IEnumerable<BookDto>>> GetAll()
         {
-            var books = await _context.Books.ToListAsync();
-
+            var books = await _context.Books.Include(b => b.Shelf).ToListAsync();
             var bookDtos = books.Select(book => new BookDto
             {
                 Id = book.Id,
@@ -33,6 +31,8 @@ namespace LibraryAPI.Controllers
                 Authors = book.Authors,
                 Genre = book.Genre,
                 Categorization = book.Categorization,
+                UDK = book.UDK,
+                BBK = book.BBK,
                 ISBN = book.ISBN,
                 Cover = book.Cover,
                 Description = book.Description,
@@ -43,18 +43,23 @@ namespace LibraryAPI.Controllers
                 Language = book.Language,
                 AvailableCopies = book.AvailableCopies,
                 DateAdded = book.DateAdded,
-                DateModified = book.DateModified
+                DateModified = book.DateModified,
+                Edition = book.Edition,
+                Price = book.Price,
+                Format = book.Format,
+                OriginalTitle = book.OriginalTitle,
+                OriginalLanguage = book.OriginalLanguage,
+                IsEbook = book.IsEbook,
+                Condition = book.Condition,
+                ShelfId = book.ShelfId
             }).ToList();
-
             return Ok(bookDtos);
         }
 
-        // GET: api/books/{id}
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(Guid id)
+        public async Task<ActionResult<BookDto>> GetById(Guid id)
         {
-            var book = await _context.Books.FindAsync(id);
-
+            var book = await _context.Books.Include(b => b.Shelf).FirstOrDefaultAsync(b => b.Id == id);
             if (book == null)
                 return NotFound(new { Message = "Книга не найдена" });
 
@@ -65,6 +70,8 @@ namespace LibraryAPI.Controllers
                 Authors = book.Authors,
                 Genre = book.Genre,
                 Categorization = book.Categorization,
+                UDK = book.UDK,
+                BBK = book.BBK,
                 ISBN = book.ISBN,
                 Cover = book.Cover,
                 Description = book.Description,
@@ -75,15 +82,21 @@ namespace LibraryAPI.Controllers
                 Language = book.Language,
                 AvailableCopies = book.AvailableCopies,
                 DateAdded = book.DateAdded,
-                DateModified = book.DateModified
+                DateModified = book.DateModified,
+                Edition = book.Edition,
+                Price = book.Price,
+                Format = book.Format,
+                OriginalTitle = book.OriginalTitle,
+                OriginalLanguage = book.OriginalLanguage,
+                IsEbook = book.IsEbook,
+                Condition = book.Condition,
+                ShelfId = book.ShelfId
             };
-
             return Ok(bookDto);
         }
 
-        // POST: api/books
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] BookCreateDto bookDto)
+        public async Task<ActionResult<BookDto>> Create([FromBody] BookCreateDto bookDto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -95,6 +108,8 @@ namespace LibraryAPI.Controllers
                 Authors = bookDto.Authors,
                 Genre = bookDto.Genre,
                 Categorization = bookDto.Categorization,
+                UDK = bookDto.UDK,
+                BBK = bookDto.BBK,
                 ISBN = bookDto.ISBN,
                 Cover = bookDto.Cover,
                 Description = bookDto.Description,
@@ -105,7 +120,15 @@ namespace LibraryAPI.Controllers
                 Language = bookDto.Language,
                 AvailableCopies = bookDto.AvailableCopies,
                 DateAdded = DateTime.UtcNow,
-                DateModified = DateTime.UtcNow
+                DateModified = DateTime.UtcNow,
+                Edition = bookDto.Edition,
+                Price = bookDto.Price,
+                Format = bookDto.Format,
+                OriginalTitle = bookDto.OriginalTitle,
+                OriginalLanguage = bookDto.OriginalLanguage,
+                IsEbook = bookDto.IsEbook,
+                Condition = bookDto.Condition,
+                ShelfId = bookDto.ShelfId
             };
 
             _context.Books.Add(book);
@@ -118,6 +141,8 @@ namespace LibraryAPI.Controllers
                 Authors = book.Authors,
                 Genre = book.Genre,
                 Categorization = book.Categorization,
+                UDK = book.UDK,
+                BBK = book.BBK,
                 ISBN = book.ISBN,
                 Cover = book.Cover,
                 Description = book.Description,
@@ -128,15 +153,22 @@ namespace LibraryAPI.Controllers
                 Language = book.Language,
                 AvailableCopies = book.AvailableCopies,
                 DateAdded = book.DateAdded,
-                DateModified = book.DateModified
+                DateModified = book.DateModified,
+                Edition = book.Edition,
+                Price = book.Price,
+                Format = book.Format,
+                OriginalTitle = book.OriginalTitle,
+                OriginalLanguage = book.OriginalLanguage,
+                IsEbook = book.IsEbook,
+                Condition = book.Condition,
+                ShelfId = book.ShelfId
             };
 
             return CreatedAtAction(nameof(GetById), new { id = book.Id }, result);
         }
 
-        // PUT: api/books/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(Guid id, [FromBody] BookUpdateDto bookDto)
+        public async Task<ActionResult<BookDto>> Update(Guid id, [FromBody] BookUpdateDto bookDto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -149,6 +181,8 @@ namespace LibraryAPI.Controllers
             book.Authors = bookDto.Authors;
             book.Genre = bookDto.Genre;
             book.Categorization = bookDto.Categorization;
+            book.UDK = bookDto.UDK;
+            book.BBK = bookDto.BBK;
             book.ISBN = bookDto.ISBN;
             book.Cover = bookDto.Cover;
             book.Description = bookDto.Description;
@@ -159,6 +193,14 @@ namespace LibraryAPI.Controllers
             book.Language = bookDto.Language;
             book.AvailableCopies = bookDto.AvailableCopies;
             book.DateModified = DateTime.UtcNow;
+            book.Edition = bookDto.Edition;
+            book.Price = bookDto.Price;
+            book.Format = bookDto.Format;
+            book.OriginalTitle = bookDto.OriginalTitle;
+            book.OriginalLanguage = bookDto.OriginalLanguage;
+            book.IsEbook = bookDto.IsEbook;
+            book.Condition = bookDto.Condition;
+            book.ShelfId = bookDto.ShelfId;
 
             await _context.SaveChangesAsync();
 
@@ -169,6 +211,8 @@ namespace LibraryAPI.Controllers
                 Authors = book.Authors,
                 Genre = book.Genre,
                 Categorization = book.Categorization,
+                UDK = book.UDK,
+                BBK = book.BBK,
                 ISBN = book.ISBN,
                 Cover = book.Cover,
                 Description = book.Description,
@@ -179,13 +223,20 @@ namespace LibraryAPI.Controllers
                 Language = book.Language,
                 AvailableCopies = book.AvailableCopies,
                 DateAdded = book.DateAdded,
-                DateModified = book.DateModified
+                DateModified = book.DateModified,
+                Edition = book.Edition,
+                Price = book.Price,
+                Format = book.Format,
+                OriginalTitle = book.OriginalTitle,
+                OriginalLanguage = book.OriginalLanguage,
+                IsEbook = book.IsEbook,
+                Condition = book.Condition,
+                ShelfId = book.ShelfId
             };
 
             return Ok(result);
         }
 
-        // DELETE: api/books/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)
         {
@@ -195,7 +246,50 @@ namespace LibraryAPI.Controllers
 
             _context.Books.Remove(book);
             await _context.SaveChangesAsync();
+
             return NoContent();
         }
+
+        [HttpPut("{id}/position")]
+        public async Task<ActionResult<BookDto>> UpdateBookPosition(Guid id, [FromBody] BookPositionDto positionDto)
+        {
+            var book = await _context.Books.FindAsync(id);
+            if (book == null)
+                return NotFound(new { Message = "Книга не найдена" });
+
+            // Проверяем, что полка существует
+            var shelf = await _context.Shelves.FindAsync(positionDto.ShelfId);
+            if (shelf == null)
+                return NotFound(new { Message = "Полка не найдена" });
+
+            // Проверяем, что позиция в пределах емкости полки
+            if (positionDto.Position >= shelf.Capacity)
+                return BadRequest(new { Message = "Позиция превышает емкость полки" });
+
+            // Проверяем, что позиция не занята другой книгой
+            var existingBook = await _context.Books
+                .FirstOrDefaultAsync(b => b.ShelfId == positionDto.ShelfId && b.Position == positionDto.Position);
+
+            if (existingBook != null && existingBook.Id != id)
+                return BadRequest(new { Message = "Эта позиция уже занята" });
+
+            book.ShelfId = positionDto.ShelfId;
+            book.Position = positionDto.Position;
+            book.DateModified = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new BookDto
+            {
+                Id = book.Id,
+                Title = book.Title,
+                Authors = book.Authors,
+                Genre = book.Genre,
+                ShelfId = book.ShelfId,
+                Position = book.Position,
+                // Другие поля...
+            });
+        }
+
     }
 }

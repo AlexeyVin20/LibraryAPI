@@ -1,5 +1,6 @@
 ﻿using LibraryAPI.Data;
 using LibraryAPI.Models;
+using LibraryAPI.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
@@ -18,46 +19,86 @@ namespace LibraryAPI.Controllers
             _context = context;
         }
 
-        // GET: api/shelf
         [HttpGet]
-        public async Task<IActionResult> GetShelves()
+        public async Task<ActionResult<IEnumerable<ShelfDto>>> GetShelves()
         {
             var shelves = await _context.Shelves
                 .Include(s => s.Books)
                 .ToListAsync();
-            return Ok(shelves);
+
+            var shelfDtos = shelves.Select(shelf => new ShelfDto
+            {
+                Id = shelf.Id,
+                Category = shelf.Category,
+                Capacity = shelf.Capacity,
+                ShelfNumber = shelf.ShelfNumber,
+                PosX = shelf.PosX,
+                PosY = shelf.PosY,
+                LastReorganized = shelf.LastReorganized
+            }).ToList();
+
+            return Ok(shelfDtos);
         }
 
-        // GET: api/shelf/5
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetShelf(int id)
+        public async Task<ActionResult<ShelfDto>> GetShelf(int id)
         {
             var shelf = await _context.Shelves
                 .Include(s => s.Books)
                 .FirstOrDefaultAsync(s => s.Id == id);
+
             if (shelf == null)
                 return NotFound();
 
-            return Ok(shelf);
+            var shelfDto = new ShelfDto
+            {
+                Id = shelf.Id,
+                Category = shelf.Category,
+                Capacity = shelf.Capacity,
+                ShelfNumber = shelf.ShelfNumber,
+                PosX = shelf.PosX,
+                PosY = shelf.PosY,
+                LastReorganized = shelf.LastReorganized
+            };
+
+            return Ok(shelfDto);
         }
 
-        // POST: api/shelf
         [HttpPost]
-        public async Task<IActionResult> CreateShelf(Shelf shelf)
+        public async Task<ActionResult<ShelfDto>> CreateShelf(ShelfCreateDto shelfDto)
         {
+            return await CreateShelfWithAutoPosition(shelfDto);
+            var shelf = new Shelf
+            {
+                Category = shelfDto.Category,
+                Capacity = shelfDto.Capacity,
+                ShelfNumber = shelfDto.ShelfNumber,
+                PosX = shelfDto.PosX,
+                PosY = shelfDto.PosY,
+                LastReorganized = DateTime.UtcNow,
+                DateModified = DateTime.UtcNow
+            };
+
             _context.Shelves.Add(shelf);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetShelf), new { id = shelf.Id }, shelf);
+
+            var createdShelfDto = new ShelfDto
+            {
+                Id = shelf.Id,
+                Category = shelf.Category,
+                Capacity = shelf.Capacity,
+                ShelfNumber = shelf.ShelfNumber,
+                PosX = shelf.PosX,
+                PosY = shelf.PosY,
+                LastReorganized = shelf.LastReorganized,
+            };
+
+            return CreatedAtAction(nameof(GetShelf), new { id = shelf.Id }, createdShelfDto);
         }
 
-        // PUT: api/shelf/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateShelf(int id, Shelf shelf)
+        public async Task<IActionResult> UpdateShelf(int id, ShelfUpdateDto shelfDto)
         {
-            if (id != shelf.Id)
-                return BadRequest();
-
-            // Find the existing shelf with its books
             var existingShelf = await _context.Shelves
                 .Include(s => s.Books)
                 .FirstOrDefaultAsync(s => s.Id == id);
@@ -65,15 +106,12 @@ namespace LibraryAPI.Controllers
             if (existingShelf == null)
                 return NotFound();
 
-            // Update basic properties
-            existingShelf.Category = shelf.Category;
-            existingShelf.Capacity = shelf.Capacity;
-            existingShelf.ShelfNumber = shelf.ShelfNumber;
-            existingShelf.PosX = shelf.PosX;
-            existingShelf.PosY = shelf.PosY;
-
-            // Don't modify the Books collection
-            // This is key - we're not touching the books relationship at all
+            existingShelf.Category = shelfDto.Category;
+            existingShelf.Capacity = shelfDto.Capacity;
+            existingShelf.ShelfNumber = shelfDto.ShelfNumber;
+            existingShelf.PosX = shelfDto.PosX;
+            existingShelf.PosY = shelfDto.PosY;
+            existingShelf.DateModified = DateTime.UtcNow;
 
             try
             {
@@ -90,8 +128,6 @@ namespace LibraryAPI.Controllers
             return NoContent();
         }
 
-
-        // DELETE: api/shelf/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteShelf(int id)
         {
@@ -101,7 +137,75 @@ namespace LibraryAPI.Controllers
 
             _context.Shelves.Remove(shelf);
             await _context.SaveChangesAsync();
+
             return NoContent();
         }
+
+        [HttpPost("auto-position")]
+        public async Task<ActionResult<ShelfDto>> CreateShelfWithAutoPosition(ShelfCreateDto shelfDto)
+        {
+            // Получаем все существующие полки
+            var existingShelves = await _context.Shelves.ToListAsync();
+
+            // Если полок нет, ставим первую полку в начальную позицию
+            if (!existingShelves.Any())
+            {
+                shelfDto.PosX = 100;
+                shelfDto.PosY = 100;
+            }
+            else
+            {
+                // Находим оптимальное место для новой полки
+                var lastShelf = existingShelves.OrderByDescending(s => s.DateModified).First();
+
+                // Проверяем, достаточно ли места справа
+                var shelvesAtSameY = existingShelves.Where(s => Math.Abs(s.PosY - lastShelf.PosY) < 50).ToList();
+                var maxRightX = shelvesAtSameY.Any() ? shelvesAtSameY.Max(s => s.PosX) : lastShelf.PosX;
+
+                // Стандартная ширина полки + отступ
+                const float shelfWidth = 200;
+                const float padding = 50;
+
+                // Если по X достигли предела (например, 1500), то переходим на новый ряд
+                if (maxRightX + shelfWidth + padding > 1500)
+                {
+                    shelfDto.PosX = 100;
+                    shelfDto.PosY = existingShelves.Max(s => s.PosY) + 300; // Новый ряд
+                }
+                else
+                {
+                    shelfDto.PosX = maxRightX + shelfWidth + padding;
+                    shelfDto.PosY = lastShelf.PosY;
+                }
+            }
+
+            var shelf = new Shelf
+            {
+                Category = shelfDto.Category,
+                Capacity = shelfDto.Capacity,
+                ShelfNumber = shelfDto.ShelfNumber,
+                PosX = shelfDto.PosX,
+                PosY = shelfDto.PosY,
+                LastReorganized = DateTime.UtcNow,
+                DateModified = DateTime.UtcNow
+            };
+
+            _context.Shelves.Add(shelf);
+            await _context.SaveChangesAsync();
+
+            var createdShelfDto = new ShelfDto
+            {
+                Id = shelf.Id,
+                Category = shelf.Category,
+                Capacity = shelf.Capacity,
+                ShelfNumber = shelf.ShelfNumber,
+                PosX = shelf.PosX,
+                PosY = shelf.PosY,
+                LastReorganized = shelf.LastReorganized
+            };
+
+            return CreatedAtAction(nameof(GetShelf), new { id = shelf.Id }, createdShelfDto);
+        }
+
     }
 }

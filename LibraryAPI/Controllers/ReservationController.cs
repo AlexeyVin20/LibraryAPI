@@ -18,9 +18,17 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ReservationDto>>> GetReservations()
+        public async Task<ActionResult<IEnumerable<ReservationDto>>> GetReservations([FromQuery] string status = null)
         {
-            var reservations = await _context.Reservations.Include(r => r.User).Include(r => r.Book).ToListAsync();
+            var query = _context.Reservations.Include(r => r.User).Include(r => r.Book).AsQueryable();
+            if (!string.IsNullOrEmpty(status))
+            {
+                if (Enum.TryParse(status, out ReservationStatus reservationStatus))
+                {
+                    query = query.Where(r => r.Status == reservationStatus);
+                }
+            }
+            var reservations = await query.ToListAsync();
             return Ok(reservations.Select(r => new ReservationDto
             {
                 Id = r.Id,
@@ -29,7 +37,9 @@ namespace LibraryAPI.Controllers
                 ReservationDate = r.ReservationDate,
                 ExpirationDate = r.ExpirationDate,
                 Status = r.Status.ToString(),
-                Notes = r.Notes
+                Notes = r.Notes,
+                User = r.User != null ? new UserDto { FullName = r.User.FullName } : null,
+                Book = r.Book != null ? new BookDto { Title = r.Book.Title } : null
             }));
         }
 
@@ -48,7 +58,9 @@ namespace LibraryAPI.Controllers
                 ReservationDate = reservation.ReservationDate,
                 ExpirationDate = reservation.ExpirationDate,
                 Status = reservation.Status.ToString(),
-                Notes = reservation.Notes
+                Notes = reservation.Notes,
+                User = reservation.User != null ? new UserDto { FullName = reservation.User.FullName } : null,
+                Book = reservation.Book != null ? new BookDto { Title = reservation.Book.Title } : null
             });
         }
 
@@ -64,7 +76,7 @@ namespace LibraryAPI.Controllers
             ReservationStatus status;
             if (!Enum.TryParse(reservationDto.Status, out status))
             {
-                status = ReservationStatus.Pending;
+                status = ReservationStatus.Обрабатывается;
             }
 
             var reservation = new Reservation
@@ -89,7 +101,9 @@ namespace LibraryAPI.Controllers
                 ReservationDate = reservation.ReservationDate,
                 ExpirationDate = reservation.ExpirationDate,
                 Status = reservation.Status.ToString(),
-                Notes = reservation.Notes
+                Notes = reservation.Notes,
+                User = new UserDto { FullName = user.FullName },
+                Book = new BookDto { Title = book.Title }
             });
         }
 
@@ -106,7 +120,6 @@ namespace LibraryAPI.Controllers
                 return BadRequest("Недопустимый статус резервации");
             }
 
-            // Обновляем все поля в соответствии с DTO
             reservation.UserId = reservationDto.UserId;
             reservation.BookId = reservationDto.BookId;
             reservation.ReservationDate = reservationDto.ReservationDate;

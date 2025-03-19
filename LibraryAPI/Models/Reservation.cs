@@ -24,9 +24,9 @@ namespace LibraryAPI.Models
 
     public enum ReservationStatus
     {
-        Pending,
-        Fulfilled,
-        Cancelled,
-        Expired
+        Обрабатывается,
+        Выполнена,
+        Отменена,
+        Истекла
     }
 }

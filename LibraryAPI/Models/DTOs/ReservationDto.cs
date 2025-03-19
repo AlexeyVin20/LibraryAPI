@@ -9,6 +9,8 @@
         public DateTime ExpirationDate { get; set; }
         public string Status { get; set; }
         public string Notes { get; set; }
+        public UserDto User { get; set; }
+        public BookDto Book { get; set; }
     }
 
     public class ReservationCreateDto

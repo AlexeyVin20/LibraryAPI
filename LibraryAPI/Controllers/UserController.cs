@@ -26,11 +26,23 @@ namespace LibraryAPI.Controllers
                 Id = u.Id,
                 FullName = u.FullName,
                 Email = u.Email,
+                Phone = u.Phone,
+                DateOfBirth = u.DateOfBirth,
+                PassportNumber = u.PassportNumber,
+                PassportIssuedBy = u.PassportIssuedBy,
+                PassportIssuedDate = u.PassportIssuedDate,
+                Address = u.Address,
+                DateRegistered = u.DateRegistered,
                 Username = u.Username,
+                PasswordHash = u.PasswordHash,
                 IsActive = u.IsActive,
+                LastLoginDate = u.LastLoginDate,
                 BorrowedBooksCount = u.BorrowedBooksCount ?? 0,
                 MaxBooksAllowed = u.MaxBooksAllowed ?? 5,
-                FineAmount = u.FineAmount
+                LoanPeriodDays = u.LoanPeriodDays,
+                FineAmount = u.FineAmount,
+                UserRoles = u.UserRoles,
+                BorrowedBooks = u.BorrowedBooks
             }));
         }
 
@@ -46,11 +58,23 @@ namespace LibraryAPI.Controllers
                 Id = user.Id,
                 FullName = user.FullName,
                 Email = user.Email,
+                Phone = user.Phone,
+                DateOfBirth = user.DateOfBirth,
+                PassportNumber = user.PassportNumber,
+                PassportIssuedBy = user.PassportIssuedBy,
+                PassportIssuedDate = user.PassportIssuedDate,
+                Address = user.Address,
+                DateRegistered = user.DateRegistered,
                 Username = user.Username,
+                PasswordHash = user.PasswordHash,
                 IsActive = user.IsActive,
+                LastLoginDate = user.LastLoginDate,
                 BorrowedBooksCount = user.BorrowedBooksCount ?? 0,
                 MaxBooksAllowed = user.MaxBooksAllowed ?? 5,
-                FineAmount = user.FineAmount
+                LoanPeriodDays = user.LoanPeriodDays,
+                FineAmount = user.FineAmount,
+                UserRoles = user.UserRoles,
+                BorrowedBooks = user.BorrowedBooks
             });
         }
 
@@ -62,20 +86,22 @@ namespace LibraryAPI.Controllers
                 Id = userDto.Id,
                 FullName = userDto.FullName,
                 Email = userDto.Email,
+                Phone = userDto.Phone,
+                DateOfBirth = userDto.DateOfBirth,
+                PassportNumber = userDto.PassportNumber,
+                PassportIssuedBy = userDto.PassportIssuedBy,
+                PassportIssuedDate = userDto.PassportIssuedDate,
+                Address = userDto.Address,
+                DateRegistered = userDto.DateRegistered,
                 Username = userDto.Username,
+                PasswordHash = userDto.PasswordHash,
                 IsActive = userDto.IsActive,
                 BorrowedBooksCount = userDto.BorrowedBooksCount,
                 MaxBooksAllowed = userDto.MaxBooksAllowed,
+                LoanPeriodDays = userDto.LoanPeriodDays,
                 FineAmount = userDto.FineAmount,
-                // Следующие поля отсутствуют в DTO, но должны быть заполнены в модели
-                DateRegistered = DateTime.UtcNow,
-                // Эти поля требуются в модели User, но отсутствуют в DTO
-                // В реальном приложении они должны быть добавлены в DTO или получены другим способом
-                Phone = "", // Необходимо получить из запроса или установить значение по умолчанию
-                DateOfBirth = DateTime.UtcNow, // Значение по умолчанию
-                PassportNumber = "", // Необходимо получить из запроса или установить значение по умолчанию
-                PassportIssuedBy = "", // Необходимо получить из запроса или установить значение по умолчанию
-                PasswordHash = "" // В реальном приложении должен быть хэш пароля
+                UserRoles = userDto.UserRoles,
+                BorrowedBooks = userDto.BorrowedBooks
             };
 
             _context.Users.Add(user);
@@ -86,11 +112,23 @@ namespace LibraryAPI.Controllers
                 Id = user.Id,
                 FullName = user.FullName,
                 Email = user.Email,
+                Phone = user.Phone,
+                DateOfBirth = user.DateOfBirth,
+                PassportNumber = user.PassportNumber,
+                PassportIssuedBy = user.PassportIssuedBy,
+                PassportIssuedDate = user.PassportIssuedDate,
+                Address = user.Address,
+                DateRegistered = user.DateRegistered,
                 Username = user.Username,
+                PasswordHash = user.PasswordHash,
                 IsActive = user.IsActive,
+                LastLoginDate = user.LastLoginDate,
                 BorrowedBooksCount = user.BorrowedBooksCount ?? 0,
                 MaxBooksAllowed = user.MaxBooksAllowed ?? 5,
-                FineAmount = user.FineAmount
+                LoanPeriodDays = user.LoanPeriodDays,
+                FineAmount = user.FineAmount,
+                UserRoles = user.UserRoles,
+                BorrowedBooks = user.BorrowedBooks
             });
         }
 
@@ -103,11 +141,22 @@ namespace LibraryAPI.Controllers
 
             user.FullName = userDto.FullName;
             user.Email = userDto.Email;
+            user.Phone = userDto.Phone;
+            user.DateOfBirth = userDto.DateOfBirth;
+            user.PassportNumber = userDto.PassportNumber;
+            user.PassportIssuedBy = userDto.PassportIssuedBy;
+            user.PassportIssuedDate = userDto.PassportIssuedDate;
+            user.Address = userDto.Address;
+            user.DateRegistered = userDto.DateRegistered;
             user.Username = userDto.Username;
+            user.PasswordHash = userDto.PasswordHash;
             user.IsActive = userDto.IsActive;
             user.BorrowedBooksCount = userDto.BorrowedBooksCount;
             user.MaxBooksAllowed = userDto.MaxBooksAllowed;
+            user.LoanPeriodDays = userDto.LoanPeriodDays;
             user.FineAmount = userDto.FineAmount;
+            user.UserRoles = userDto.UserRoles;
+            user.BorrowedBooks = userDto.BorrowedBooks;
 
             await _context.SaveChangesAsync();
             return NoContent();

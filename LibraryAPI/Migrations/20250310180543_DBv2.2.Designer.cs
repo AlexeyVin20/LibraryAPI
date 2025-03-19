@@ -3,6 +3,7 @@ using System;
 using LibraryAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LibraryAPI.Migrations
 {
     [DbContext(typeof(LibraryDbContext))]
-    partial class LibraryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250310180543_DBv2.2")]
+    partial class DBv22
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -133,9 +136,6 @@ namespace LibraryAPI.Migrations
                     b.Property<int?>("PageCount")
                         .HasColumnType("integer");
 
-                    b.Property<int>("Position")
-                        .HasColumnType("integer");
-
                     b.Property<decimal?>("Price")
                         .HasColumnType("numeric");
 
@@ -182,24 +182,26 @@ namespace LibraryAPI.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("Category")
+                    b.Property<int>("Category")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("Circulation")
+                    b.Property<int>("Circulation")
                         .HasColumnType("integer");
 
                     b.Property<string>("CoverImageUrl")
+                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("Description")
+                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
                     b.Property<int>("Format")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("FoundationDate")
+                    b.Property<DateTime>("FoundationDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ISSN")
@@ -207,48 +209,45 @@ namespace LibraryAPI.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<bool?>("IsIndexedInRINTS")
+                    b.Property<bool>("IsIndexedInRINTS")
                         .HasColumnType("boolean");
 
-                    b.Property<bool?>("IsIndexedInScopus")
+                    b.Property<bool>("IsIndexedInScopus")
                         .HasColumnType("boolean");
 
-                    b.Property<bool?>("IsIndexedInWebOfScience")
+                    b.Property<bool>("IsIndexedInWebOfScience")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsOpenAccess")
                         .HasColumnType("boolean");
 
-                    b.Property<bool?>("IsPeerReviewed")
+                    b.Property<bool>("IsPeerReviewed")
                         .HasColumnType("boolean");
 
-                    b.Property<int?>("PageCount")
+                    b.Property<int>("PageCount")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("PagesPerIssue")
+                    b.Property<int>("PagesPerIssue")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("Periodicity")
+                    b.Property<int>("Periodicity")
                         .HasColumnType("integer");
 
-                    b.Property<int>("Position")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("PublicationDate")
+                    b.Property<DateTime>("PublicationDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Publisher")
+                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.Property<string>("RegistrationNumber")
+                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<int>("ShelfId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("TargetAudience")
+                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 

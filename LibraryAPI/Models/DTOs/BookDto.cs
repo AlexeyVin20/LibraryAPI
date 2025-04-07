@@ -32,7 +32,7 @@ namespace LibraryAPI.Models.DTOs
         public bool? IsEbook { get; set; }
         public string Condition { get; set; }
         public int? ShelfId { get; set; }
-        public int Position { get; internal set; }
+        public int? Position { get; internal set; }
     }
 
     public class BookCreateDto
@@ -93,6 +93,7 @@ namespace LibraryAPI.Models.DTOs
         public string Condition { get; set; }
 
         public int? ShelfId { get; set; }
+        public int? Position { get; internal set; }
     }
 
     public class BookUpdateDto
@@ -153,5 +154,6 @@ namespace LibraryAPI.Models.DTOs
         public string Condition { get; set; }
 
         public int? ShelfId { get; set; }
+        public int? Position { get; internal set; }
     }
 }

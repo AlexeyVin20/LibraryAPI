@@ -49,7 +49,9 @@ namespace LibraryAPI.Controllers
                     IsIndexedInWebOfScience = j.IsIndexedInWebOfScience,
                     PublicationDate = j.PublicationDate,
                     PageCount = j.PageCount,
-                    CoverImageUrl = j.CoverImageUrl
+                    Cover = j.Cover,
+                    ShelfId = j.ShelfId ?? 0,
+                    Position = j.Position ?? 0
                 })
                 .ToListAsync();
         }
@@ -59,7 +61,6 @@ namespace LibraryAPI.Controllers
         public async Task<ActionResult<JournalDto>> GetJournal(int id)
         {
             var journal = await _context.Journals.FindAsync(id);
-
             if (journal == null)
             {
                 return NotFound();
@@ -87,7 +88,9 @@ namespace LibraryAPI.Controllers
                 IsIndexedInWebOfScience = journal.IsIndexedInWebOfScience,
                 PublicationDate = journal.PublicationDate,
                 PageCount = journal.PageCount,
-                CoverImageUrl = journal.CoverImageUrl
+                Cover = journal.Cover,
+                ShelfId = journal.ShelfId ?? 0,
+                Position = journal.Position ?? 0
             };
         }
 
@@ -100,23 +103,23 @@ namespace LibraryAPI.Controllers
                 Title = journalDto.Title,
                 ISSN = journalDto.ISSN,
                 RegistrationNumber = journalDto.RegistrationNumber,
-                Format = Enum.Parse<JournalFormat>(journalDto.Format),
-                Periodicity = Enum.Parse<Periodicity>(journalDto.Periodicity),
-                PagesPerIssue = journalDto.PagesPerIssue,
-                Description = journalDto.Description,
-                Publisher = journalDto.Publisher,
-                FoundationDate = journalDto.FoundationDate,
-                Circulation = journalDto.Circulation,
+                Format = Enum.Parse<JournalFormat>(journalDto.Format ?? throw new ArgumentNullException(nameof(journalDto.Format))),
+                Periodicity = Enum.Parse<JournalPeriodicity>(journalDto.Periodicity ?? throw new ArgumentNullException(nameof(journalDto.Periodicity))),
+                PagesPerIssue = journalDto.PagesPerIssue ?? 0,
+                Description = journalDto.Description ?? string.Empty,
+                Publisher = journalDto.Publisher ?? string.Empty,
+                FoundationDate = journalDto.FoundationDate ?? DateTime.MinValue,
+                Circulation = journalDto.Circulation ?? 0,
                 IsOpenAccess = journalDto.IsOpenAccess,
-                Category = Enum.Parse<JournalCategory>(journalDto.Category),
-                TargetAudience = journalDto.TargetAudience,
-                IsPeerReviewed = journalDto.IsPeerReviewed,
-                IsIndexedInRINTS = journalDto.IsIndexedInRINTS,
-                IsIndexedInScopus = journalDto.IsIndexedInScopus,
-                IsIndexedInWebOfScience = journalDto.IsIndexedInWebOfScience,
-                PublicationDate = journalDto.PublicationDate,
-                PageCount = journalDto.PageCount,
-                CoverImageUrl = journalDto.CoverImageUrl
+                Category = Enum.Parse<JournalCategory>(journalDto.Category ?? throw new ArgumentNullException(nameof(journalDto.Category))),
+                TargetAudience = journalDto.TargetAudience ?? string.Empty,
+                IsPeerReviewed = journalDto.IsPeerReviewed ?? false,
+                IsIndexedInRINTS = journalDto.IsIndexedInRINTS ?? false,
+                IsIndexedInScopus = journalDto.IsIndexedInScopus ?? false,
+                IsIndexedInWebOfScience = journalDto.IsIndexedInWebOfScience ?? false,
+                PublicationDate = journalDto.PublicationDate ?? DateTime.MinValue,
+                PageCount = journalDto.PageCount ?? 0,
+                Cover = journalDto.Cover ?? string.Empty
             };
 
             _context.Journals.Add(journal);
@@ -147,7 +150,9 @@ namespace LibraryAPI.Controllers
                     IsIndexedInWebOfScience = journal.IsIndexedInWebOfScience,
                     PublicationDate = journal.PublicationDate,
                     PageCount = journal.PageCount,
-                    CoverImageUrl = journal.CoverImageUrl
+                    Cover = journal.Cover,
+                    ShelfId = journal.ShelfId ?? 0,
+                    Position = journal.Position ?? 0
                 });
         }
 
@@ -156,7 +161,6 @@ namespace LibraryAPI.Controllers
         public async Task<IActionResult> UpdateJournal(int id, JournalUpdateDto journalDto)
         {
             var journal = await _context.Journals.FindAsync(id);
-
             if (journal == null)
             {
                 return NotFound();
@@ -165,23 +169,23 @@ namespace LibraryAPI.Controllers
             journal.Title = journalDto.Title;
             journal.ISSN = journalDto.ISSN;
             journal.RegistrationNumber = journalDto.RegistrationNumber;
-            journal.Format = Enum.Parse<JournalFormat>(journalDto.Format);
-            journal.Periodicity = Enum.Parse<Periodicity>(journalDto.Periodicity);
-            journal.PagesPerIssue = journalDto.PagesPerIssue;
-            journal.Description = journalDto.Description;
-            journal.Publisher = journalDto.Publisher;
-            journal.FoundationDate = journalDto.FoundationDate;
-            journal.Circulation = journalDto.Circulation;
+            journal.Format = Enum.Parse<JournalFormat>(journalDto.Format ?? throw new ArgumentNullException(nameof(journalDto.Format)));
+            journal.Periodicity = Enum.Parse<JournalPeriodicity>(journalDto.Periodicity ?? throw new ArgumentNullException(nameof(journalDto.Periodicity)));
+            journal.PagesPerIssue = journalDto.PagesPerIssue ?? 0;
+            journal.Description = journalDto.Description ?? string.Empty;
+            journal.Publisher = journalDto.Publisher ?? string.Empty;
+            journal.FoundationDate = journalDto.FoundationDate ?? DateTime.MinValue;
+            journal.Circulation = journalDto.Circulation ?? 0;
             journal.IsOpenAccess = journalDto.IsOpenAccess;
-            journal.Category = Enum.Parse<JournalCategory>(journalDto.Category);
-            journal.TargetAudience = journalDto.TargetAudience;
-            journal.IsPeerReviewed = journalDto.IsPeerReviewed;
-            journal.IsIndexedInRINTS = journalDto.IsIndexedInRINTS;
-            journal.IsIndexedInScopus = journalDto.IsIndexedInScopus;
-            journal.IsIndexedInWebOfScience = journalDto.IsIndexedInWebOfScience;
-            journal.PublicationDate = journalDto.PublicationDate;
-            journal.PageCount = journalDto.PageCount;
-            journal.CoverImageUrl = journalDto.CoverImageUrl;
+            journal.Category = Enum.Parse<JournalCategory>(journalDto.Category ?? throw new ArgumentNullException(nameof(journalDto.Category)));
+            journal.TargetAudience = journalDto.TargetAudience ?? string.Empty;
+            journal.IsPeerReviewed = journalDto.IsPeerReviewed ?? false;
+            journal.IsIndexedInRINTS = journalDto.IsIndexedInRINTS ?? false;
+            journal.IsIndexedInScopus = journalDto.IsIndexedInScopus ?? false;
+            journal.IsIndexedInWebOfScience = journalDto.IsIndexedInWebOfScience ?? false;
+            journal.PublicationDate = journalDto.PublicationDate ?? DateTime.MinValue;
+            journal.PageCount = journalDto.PageCount ?? 0;
+            journal.Cover = journalDto.Cover ?? string.Empty;
 
             try
             {
@@ -229,8 +233,8 @@ namespace LibraryAPI.Controllers
 
             return await _context.Journals
                 .Where(j => j.Title.Contains(query) ||
-                           j.Description.Contains(query) ||
-                           j.Publisher.Contains(query))
+                          j.Description.Contains(query) ||
+                          j.Publisher.Contains(query))
                 .Select(j => new JournalDto
                 {
                     Id = j.Id,
@@ -253,7 +257,9 @@ namespace LibraryAPI.Controllers
                     IsIndexedInWebOfScience = j.IsIndexedInWebOfScience,
                     PublicationDate = j.PublicationDate,
                     PageCount = j.PageCount,
-                    CoverImageUrl = j.CoverImageUrl
+                    Cover = j.Cover,
+                    ShelfId = j.ShelfId ?? 0,
+                    Position = j.Position ?? 0
                 })
                 .ToListAsync();
         }
@@ -286,9 +292,18 @@ namespace LibraryAPI.Controllers
                     IsIndexedInWebOfScience = j.IsIndexedInWebOfScience,
                     PublicationDate = j.PublicationDate,
                     PageCount = j.PageCount,
-                    CoverImageUrl = j.CoverImageUrl
+                    Cover = j.Cover,
+                    ShelfId = j.ShelfId ?? 0,
+                    Position = j.Position ?? 0
                 })
                 .ToListAsync();
+        }
+
+        // Модель для обновления позиции журнала
+        public class JournalPositionDto
+        {
+            public int ShelfId { get; set; }
+            public int Position { get; set; }
         }
 
         [HttpPut("{id}/position")]
@@ -316,19 +331,35 @@ namespace LibraryAPI.Controllers
 
             journal.ShelfId = positionDto.ShelfId;
             journal.Position = positionDto.Position;
-
             await _context.SaveChangesAsync();
 
             return Ok(new JournalDto
             {
                 Id = journal.Id,
                 Title = journal.Title,
-                // другие свойства...
-                ShelfId = journal.ShelfId,
-                Position = journal.Position
+                ISSN = journal.ISSN,
+                RegistrationNumber = journal.RegistrationNumber,
+                Format = journal.Format.ToString(),
+                Periodicity = journal.Periodicity.ToString(),
+                PagesPerIssue = journal.PagesPerIssue,
+                Description = journal.Description,
+                Publisher = journal.Publisher,
+                FoundationDate = journal.FoundationDate,
+                Circulation = journal.Circulation,
+                IsOpenAccess = journal.IsOpenAccess,
+                Category = journal.Category.ToString(),
+                TargetAudience = journal.TargetAudience,
+                IsPeerReviewed = journal.IsPeerReviewed,
+                IsIndexedInRINTS = journal.IsIndexedInRINTS,
+                IsIndexedInScopus = journal.IsIndexedInScopus,
+                IsIndexedInWebOfScience = journal.IsIndexedInWebOfScience,
+                PublicationDate = journal.PublicationDate,
+                PageCount = journal.PageCount,
+                Cover = journal.Cover,
+                ShelfId = journal.ShelfId ?? 0,
+                Position = journal.Position ?? 0
             });
         }
-
 
         private bool JournalExists(int id)
         {

@@ -66,6 +66,6 @@ namespace LibraryAPI.Models
 
         public int? ShelfId { get; set; }
         public Shelf Shelf { get; set; }
-        public int Position { get; internal set; }
+        public int? Position { get; internal set; }
     }
 }

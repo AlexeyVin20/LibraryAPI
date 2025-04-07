@@ -8,8 +8,8 @@ namespace LibraryAPI.DTOs
     {
         public int Id { get; set; }
         public string Title { get; set; }
-        public string ISSN { get; set; }
-        public string RegistrationNumber { get; set; }
+        public string? ISSN { get; set; }
+        public string? RegistrationNumber { get; set; }
         public string? Format { get; set; }
         public string? Periodicity { get; set; }
         public int? PagesPerIssue { get; set; }
@@ -26,9 +26,9 @@ namespace LibraryAPI.DTOs
         public bool? IsIndexedInWebOfScience { get; set; }
         public DateTime? PublicationDate { get; set; }
         public int? PageCount { get; set; }
-        public string? CoverImageUrl { get; set; }
-        public int ShelfId { get; internal set; }
-        public int Position { get; internal set; }
+        public string? Cover { get; set; }
+        public int? ShelfId { get; internal set; }
+        public int? Position { get; internal set; }
     }
 
     // DTO для создания нового журнала
@@ -36,8 +36,8 @@ namespace LibraryAPI.DTOs
     {
         public int Id { get; set; }
         public string Title { get; set; }
-        public string ISSN { get; set; }
-        public string RegistrationNumber { get; set; }
+        public string? ISSN { get; set; }
+        public string? RegistrationNumber { get; set; }
         public string? Format { get; set; }
         public string? Periodicity { get; set; }
         public int? PagesPerIssue { get; set; }
@@ -54,7 +54,9 @@ namespace LibraryAPI.DTOs
         public bool? IsIndexedInWebOfScience { get; set; }
         public DateTime? PublicationDate { get; set; }
         public int? PageCount { get; set; }
-        public string? CoverImageUrl { get; set; }
+        public string? Cover { get; set; }
+        public int? ShelfId { get; internal set; }
+        public int? Position { get; internal set; }
     }
 
     // DTO для обновления существующего журнала
@@ -62,8 +64,8 @@ namespace LibraryAPI.DTOs
     {
         public int Id { get; set; }
         public string Title { get; set; }
-        public string ISSN { get; set; }
-        public string RegistrationNumber { get; set; }
+        public string? ISSN { get; set; }
+        public string? RegistrationNumber { get; set; }
         public string? Format { get; set; }
         public string? Periodicity { get; set; }
         public int? PagesPerIssue { get; set; }
@@ -80,6 +82,8 @@ namespace LibraryAPI.DTOs
         public bool? IsIndexedInWebOfScience { get; set; }
         public DateTime? PublicationDate { get; set; }
         public int? PageCount { get; set; }
-        public string? CoverImageUrl { get; set; }
+        public string? Cover { get; set; }
+        public int? ShelfId { get; internal set; }
+        public int? Position { get; internal set; }
     }
 }

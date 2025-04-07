@@ -29,29 +29,30 @@ namespace LibraryAPI.Controllers
                 Id = book.Id,
                 Title = book.Title,
                 Authors = book.Authors,
-                Genre = book.Genre,
-                Categorization = book.Categorization,
-                UDK = book.UDK,
-                BBK = book.BBK,
+                Genre = book.Genre ?? string.Empty,
+                Categorization = book.Categorization ?? string.Empty,
+                UDK = book.UDK ?? string.Empty,
+                BBK = book.BBK ?? string.Empty,
                 ISBN = book.ISBN,
-                Cover = book.Cover,
-                Description = book.Description,
-                Summary = book.Summary,
+                Cover = book.Cover ?? string.Empty,
+                Description = book.Description ?? string.Empty,
+                Summary = book.Summary ?? string.Empty,
                 PublicationYear = book.PublicationYear,
-                Publisher = book.Publisher,
+                Publisher = book.Publisher ?? string.Empty,
                 PageCount = book.PageCount,
-                Language = book.Language,
+                Language = book.Language ?? string.Empty,
                 AvailableCopies = book.AvailableCopies,
                 DateAdded = book.DateAdded,
                 DateModified = book.DateModified,
-                Edition = book.Edition,
+                Edition = book.Edition ?? string.Empty,
                 Price = book.Price,
-                Format = book.Format,
-                OriginalTitle = book.OriginalTitle,
-                OriginalLanguage = book.OriginalLanguage,
+                Format = book.Format ?? string.Empty,
+                OriginalTitle = book.OriginalTitle ?? string.Empty,
+                OriginalLanguage = book.OriginalLanguage ?? string.Empty,
                 IsEbook = book.IsEbook,
-                Condition = book.Condition,
-                ShelfId = book.ShelfId
+                Condition = book.Condition ?? string.Empty,
+                ShelfId = book.ShelfId,
+                Position = book.Position
             }).ToList();
             return Ok(bookDtos);
         }
@@ -68,29 +69,30 @@ namespace LibraryAPI.Controllers
                 Id = book.Id,
                 Title = book.Title,
                 Authors = book.Authors,
-                Genre = book.Genre,
-                Categorization = book.Categorization,
-                UDK = book.UDK,
-                BBK = book.BBK,
+                Genre = book.Genre ?? string.Empty,
+                Categorization = book.Categorization ?? string.Empty,
+                UDK = book.UDK ?? string.Empty,
+                BBK = book.BBK ?? string.Empty,
                 ISBN = book.ISBN,
-                Cover = book.Cover,
-                Description = book.Description,
-                Summary = book.Summary,
+                Cover = book.Cover ?? string.Empty,
+                Description = book.Description ?? string.Empty,
+                Summary = book.Summary ?? string.Empty,
                 PublicationYear = book.PublicationYear,
-                Publisher = book.Publisher,
+                Publisher = book.Publisher ?? string.Empty,
                 PageCount = book.PageCount,
-                Language = book.Language,
+                Language = book.Language ?? string.Empty,
                 AvailableCopies = book.AvailableCopies,
                 DateAdded = book.DateAdded,
                 DateModified = book.DateModified,
-                Edition = book.Edition,
+                Edition = book.Edition ?? string.Empty,
                 Price = book.Price,
-                Format = book.Format,
-                OriginalTitle = book.OriginalTitle,
-                OriginalLanguage = book.OriginalLanguage,
+                Format = book.Format ?? string.Empty,
+                OriginalTitle = book.OriginalTitle ?? string.Empty,
+                OriginalLanguage = book.OriginalLanguage ?? string.Empty,
                 IsEbook = book.IsEbook,
-                Condition = book.Condition,
-                ShelfId = book.ShelfId
+                Condition = book.Condition ?? string.Empty,
+                ShelfId = book.ShelfId,
+                Position = book.Position
             };
             return Ok(bookDto);
         }
@@ -128,7 +130,8 @@ namespace LibraryAPI.Controllers
                 OriginalLanguage = bookDto.OriginalLanguage,
                 IsEbook = bookDto.IsEbook,
                 Condition = bookDto.Condition,
-                ShelfId = bookDto.ShelfId
+                ShelfId = bookDto.ShelfId,
+                Position = bookDto.Position
             };
 
             _context.Books.Add(book);
@@ -139,29 +142,30 @@ namespace LibraryAPI.Controllers
                 Id = book.Id,
                 Title = book.Title,
                 Authors = book.Authors,
-                Genre = book.Genre,
-                Categorization = book.Categorization,
-                UDK = book.UDK,
-                BBK = book.BBK,
+                Genre = book.Genre ?? string.Empty,
+                Categorization = book.Categorization ?? string.Empty,
+                UDK = book.UDK ?? string.Empty,
+                BBK = book.BBK ?? string.Empty,
                 ISBN = book.ISBN,
-                Cover = book.Cover,
-                Description = book.Description,
-                Summary = book.Summary,
+                Cover = book.Cover ?? string.Empty,
+                Description = book.Description ?? string.Empty,
+                Summary = book.Summary ?? string.Empty,
                 PublicationYear = book.PublicationYear,
-                Publisher = book.Publisher,
+                Publisher = book.Publisher ?? string.Empty,
                 PageCount = book.PageCount,
-                Language = book.Language,
+                Language = book.Language ?? string.Empty,
                 AvailableCopies = book.AvailableCopies,
                 DateAdded = book.DateAdded,
                 DateModified = book.DateModified,
-                Edition = book.Edition,
+                Edition = book.Edition ?? string.Empty,
                 Price = book.Price,
-                Format = book.Format,
-                OriginalTitle = book.OriginalTitle,
-                OriginalLanguage = book.OriginalLanguage,
+                Format = book.Format ?? string.Empty,
+                OriginalTitle = book.OriginalTitle ?? string.Empty,
+                OriginalLanguage = book.OriginalLanguage ?? string.Empty,
                 IsEbook = book.IsEbook,
-                Condition = book.Condition,
-                ShelfId = book.ShelfId
+                Condition = book.Condition ?? string.Empty,
+                ShelfId = book.ShelfId,
+                Position = book.Position
             };
 
             return CreatedAtAction(nameof(GetById), new { id = book.Id }, result);
@@ -201,6 +205,7 @@ namespace LibraryAPI.Controllers
             book.IsEbook = bookDto.IsEbook;
             book.Condition = bookDto.Condition;
             book.ShelfId = bookDto.ShelfId;
+            book.Position = bookDto.Position;
 
             await _context.SaveChangesAsync();
 
@@ -209,29 +214,30 @@ namespace LibraryAPI.Controllers
                 Id = book.Id,
                 Title = book.Title,
                 Authors = book.Authors,
-                Genre = book.Genre,
-                Categorization = book.Categorization,
-                UDK = book.UDK,
-                BBK = book.BBK,
+                Genre = book.Genre ?? string.Empty,
+                Categorization = book.Categorization ?? string.Empty,
+                UDK = book.UDK ?? string.Empty,
+                BBK = book.BBK ?? string.Empty,
                 ISBN = book.ISBN,
-                Cover = book.Cover,
-                Description = book.Description,
-                Summary = book.Summary,
+                Cover = book.Cover ?? string.Empty,
+                Description = book.Description ?? string.Empty,
+                Summary = book.Summary ?? string.Empty,
                 PublicationYear = book.PublicationYear,
-                Publisher = book.Publisher,
+                Publisher = book.Publisher ?? string.Empty,
                 PageCount = book.PageCount,
-                Language = book.Language,
+                Language = book.Language ?? string.Empty,
                 AvailableCopies = book.AvailableCopies,
                 DateAdded = book.DateAdded,
                 DateModified = book.DateModified,
-                Edition = book.Edition,
+                Edition = book.Edition ?? string.Empty,
                 Price = book.Price,
-                Format = book.Format,
-                OriginalTitle = book.OriginalTitle,
-                OriginalLanguage = book.OriginalLanguage,
+                Format = book.Format ?? string.Empty,
+                OriginalTitle = book.OriginalTitle ?? string.Empty,
+                OriginalLanguage = book.OriginalLanguage ?? string.Empty,
                 IsEbook = book.IsEbook,
-                Condition = book.Condition,
-                ShelfId = book.ShelfId
+                Condition = book.Condition ?? string.Empty,
+                ShelfId = book.ShelfId,
+                Position = book.Position
             };
 
             return Ok(result);
@@ -284,12 +290,114 @@ namespace LibraryAPI.Controllers
                 Id = book.Id,
                 Title = book.Title,
                 Authors = book.Authors,
-                Genre = book.Genre,
+                Genre = book.Genre ?? string.Empty,
                 ShelfId = book.ShelfId,
                 Position = book.Position,
                 // Другие поля...
             });
         }
 
+        [HttpPost("{id}/auto-position")]
+        public async Task<IActionResult> AutoPositionBook(Guid id)
+        {
+            try
+            {
+                // Получаем книгу по ID
+                var book = await _context.Books.FindAsync(id);
+                if (book == null)
+                {
+                    return NotFound("Книга не найдена");
+                }
+
+                // Получаем категоризацию книги
+                var categorization = book.Categorization;
+                if (string.IsNullOrEmpty(categorization))
+                {
+                    return BadRequest("У книги отсутствует категоризация");
+                }
+
+                // Получаем все полки
+                var shelves = await _context.Shelves.ToListAsync();
+
+                // Находим полки с подходящей категорией
+                var matchingShelves = shelves
+                    .Where(s => string.Equals(s.Category, categorization, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (!matchingShelves.Any())
+                {
+                    // Если нет точного совпадения, ищем полки, содержащие категорию в начале строки
+                    matchingShelves = shelves
+                        .Where(s => categorization.StartsWith(s.Category, StringComparison.OrdinalIgnoreCase) ||
+                                   s.Category.StartsWith(categorization, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    // Если до сих пор нет совпадений, используем общую полку
+                    if (!matchingShelves.Any())
+                    {
+                        matchingShelves = shelves
+                            .Where(s => string.Equals(s.Category, "Общая", StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+
+                        // Если нет общей полки, используем любую доступную
+                        if (!matchingShelves.Any())
+                        {
+                            matchingShelves = shelves.ToList();
+                        }
+                    }
+                }
+
+                if (!matchingShelves.Any())
+                {
+                    return BadRequest("Нет доступных полок для размещения книги");
+                }
+
+                // Получаем все книги с расположением на полках
+                var allBooks = await _context.Books.ToListAsync();
+                var booksWithPositions = allBooks
+                    .Where(b => b.ShelfId != null && b.Position != null)
+                    .ToList();
+
+                // Ищем свободное место на подходящих полках
+                foreach (var shelf in matchingShelves)
+                {
+                    // Проверяем занятые позиции на этой полке
+                    var occupiedPositions = booksWithPositions
+                        .Where(b => b.ShelfId == shelf.Id)
+                        .Select(b => b.Position)
+                        .ToHashSet();
+
+                    // Ищем первую свободную позицию
+                    for (int position = 0; position < shelf.Capacity; position++)
+                    {
+                        if (!occupiedPositions.Contains(position))
+                        {
+                            // Найдена свободная позиция, размещаем книгу
+                            book.ShelfId = shelf.Id;
+                            book.Position = position;
+
+                            // Обновляем книгу в базе данных
+                            await _context.SaveChangesAsync();
+
+                            // Возвращаем успешный результат с информацией о размещении
+                            return Ok(new
+                            {
+                                message = "Книга успешно размещена на полке",
+                                shelfId = shelf.Id,
+                                position = position,
+                                category = shelf.Category
+                            });
+                        }
+                    }
+                }
+
+                // Если не нашли свободной позиции
+                return BadRequest("На подходящих полках нет свободных мест");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Ошибка при автоматическом размещении книги: {ex.Message}");
+            }
+        }
     }
 }

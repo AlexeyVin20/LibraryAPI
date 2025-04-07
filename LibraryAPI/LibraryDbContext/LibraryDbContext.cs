@@ -14,6 +14,8 @@ namespace LibraryAPI.Data
         public DbSet<Author> Authors { get; set; }
         public DbSet<Reservation> Reservations { get; set; }
         public DbSet<Journal> Journals { get; set; }
+        public DbSet<Issue> Issues { get; set; }
+        public DbSet<Article> Articles { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -3,6 +3,8 @@ using LibraryAPI.Models;
 using LibraryAPI.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -65,39 +67,28 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPost]
+        [Consumes("application/json")]
+        [Produces("application/json")]
         public async Task<ActionResult<ShelfDto>> CreateShelf(ShelfCreateDto shelfDto)
         {
+            if (shelfDto == null)
+            {
+                return BadRequest(new { message = "Данные полки отсутствуют" });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            // Вызываем метод для автоматического позиционирования полки
             return await CreateShelfWithAutoPosition(shelfDto);
-            var shelf = new Shelf
-            {
-                Category = shelfDto.Category,
-                Capacity = shelfDto.Capacity,
-                ShelfNumber = shelfDto.ShelfNumber,
-                PosX = shelfDto.PosX,
-                PosY = shelfDto.PosY,
-                LastReorganized = DateTime.UtcNow,
-                DateModified = DateTime.UtcNow
-            };
-
-            _context.Shelves.Add(shelf);
-            await _context.SaveChangesAsync();
-
-            var createdShelfDto = new ShelfDto
-            {
-                Id = shelf.Id,
-                Category = shelf.Category,
-                Capacity = shelf.Capacity,
-                ShelfNumber = shelf.ShelfNumber,
-                PosX = shelf.PosX,
-                PosY = shelf.PosY,
-                LastReorganized = shelf.LastReorganized,
-            };
-
-            return CreatedAtAction(nameof(GetShelf), new { id = shelf.Id }, createdShelfDto);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateShelf(int id, ShelfUpdateDto shelfDto)
+        [Consumes("application/json")]
+        [Produces("application/json")]
+        public async Task<ActionResult<ShelfDto>> UpdateShelf(int id, ShelfUpdateDto shelfDto)
         {
             var existingShelf = await _context.Shelves
                 .Include(s => s.Books)
@@ -125,25 +116,64 @@ namespace LibraryAPI.Controllers
                     throw;
             }
 
-            return NoContent();
+            // Вместо NoContent() возвращаем обновленную полку
+            var updatedShelfDto = new ShelfDto
+            {
+                Id = existingShelf.Id,
+                Category = existingShelf.Category,
+                Capacity = existingShelf.Capacity,
+                ShelfNumber = existingShelf.ShelfNumber,
+                PosX = existingShelf.PosX,
+                PosY = existingShelf.PosY,
+                LastReorganized = existingShelf.LastReorganized
+            };
+
+            return Ok(updatedShelfDto);
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteShelf(int id)
+        [Produces("application/json")]
+        public async Task<ActionResult<object>> DeleteShelf(int id)
         {
             var shelf = await _context.Shelves.FindAsync(id);
             if (shelf == null)
                 return NotFound();
 
+            // Сохраняем информацию о полке перед удалением
+            var shelfInfo = new
+            {
+                Id = shelf.Id,
+                Category = shelf.Category,
+                ShelfNumber = shelf.ShelfNumber,
+                DeletedAt = DateTime.UtcNow
+            };
+
             _context.Shelves.Remove(shelf);
             await _context.SaveChangesAsync();
 
-            return NoContent();
+            // Возвращаем информацию об удаленной полке
+            return Ok(new
+            {
+                Message = "Полка успешно удалена",
+                DeletedShelf = shelfInfo
+            });
         }
 
         [HttpPost("auto-position")]
+        [Consumes("application/json")]
+        [Produces("application/json")]
         public async Task<ActionResult<ShelfDto>> CreateShelfWithAutoPosition(ShelfCreateDto shelfDto)
         {
+            if (shelfDto == null)
+            {
+                return BadRequest(new { message = "Данные полки отсутствуют" });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
             // Получаем все существующие полки
             var existingShelves = await _context.Shelves.ToListAsync();
 
@@ -207,5 +237,53 @@ namespace LibraryAPI.Controllers
             return CreatedAtAction(nameof(GetShelf), new { id = shelf.Id }, createdShelfDto);
         }
 
+        // GET: api/Shelf/{id}/books
+        [HttpGet("{id}/books")]
+        public async Task<ActionResult<IEnumerable<object>>> GetBooksOnShelf(int id)
+        {
+            var shelf = await _context.Shelves
+                .Include(s => s.Books)
+                .FirstOrDefaultAsync(s => s.Id == id);
+
+            if (shelf == null)
+                return NotFound();
+
+            var books = shelf.Books.Select(book => new
+            {
+                Id = book.Id,
+                Title = book.Title,
+                Authors = book.Authors,
+                ISBN = book.ISBN,
+                PublicationYear = book.PublicationYear
+            });
+
+            return Ok(books);
+        }
+
+        // GET: api/Shelf/category/{category}
+        [HttpGet("category/{category}")]
+        public async Task<ActionResult<IEnumerable<ShelfDto>>> GetShelvesByCategory(string category)
+        {
+            var shelves = await _context.Shelves
+                .Where(s => s.Category.ToLower() == category.ToLower())
+                .Include(s => s.Books)
+                .ToListAsync();
+
+            if (!shelves.Any())
+                return Ok(new List<ShelfDto>());
+
+            var shelfDtos = shelves.Select(shelf => new ShelfDto
+            {
+                Id = shelf.Id,
+                Category = shelf.Category,
+                Capacity = shelf.Capacity,
+                ShelfNumber = shelf.ShelfNumber,
+                PosX = shelf.PosX,
+                PosY = shelf.PosY,
+                LastReorganized = shelf.LastReorganized
+            }).ToList();
+
+            return Ok(shelfDtos);
+        }
     }
 }

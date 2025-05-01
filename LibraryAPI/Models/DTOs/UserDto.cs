@@ -20,8 +20,8 @@
         public int? MaxBooksAllowed { get; set; }
         public int LoanPeriodDays { get; set; }
         public decimal FineAmount { get; set; }
-        public List<UserRole> UserRoles { get; set; }
-        public List<Book> BorrowedBooks { get; set; }
+        public List<UserRole>? UserRoles { get; set; }
+        public List<Book>? BorrowedBooks { get; set; }
     }
 
     public class UserCreateDto
@@ -37,14 +37,14 @@
         public string? Address { get; set; }
         public DateTime DateRegistered { get; set; }
         public string Username { get; set; }
-        public string PasswordHash { get; set; }
+        public string Password { get; set; }
         public bool IsActive { get; set; }
         public int? BorrowedBooksCount { get; set; }
         public int? MaxBooksAllowed { get; set; }
         public int LoanPeriodDays { get; set; }
         public decimal FineAmount { get; set; }
-        public List<UserRole> UserRoles { get; set; }
-        public List<Book> BorrowedBooks { get; set; }
+        public List<UserRole>? UserRoles { get; set; }
+        public List<Book>? BorrowedBooks { get; set; }
     }
 
     public class UserUpdateDto
@@ -60,13 +60,45 @@
         public string? Address { get; set; }
         public DateTime DateRegistered { get; set; }
         public string Username { get; set; }
-        public string PasswordHash { get; set; }
         public bool IsActive { get; set; }
         public int? BorrowedBooksCount { get; set; }
         public int? MaxBooksAllowed { get; set; }
         public int LoanPeriodDays { get; set; }
         public decimal FineAmount { get; set; }
-        public List<UserRole> UserRoles { get; set; }
-        public List<Book> BorrowedBooks { get; set; }
+        public List<UserRole>? UserRoles { get; set; }
+        public List<Book>? BorrowedBooks { get; set; }
+    }
+
+    public class UserChangePasswordDto
+    {
+        public Guid Id { get; set; }
+        public string OldPassword { get; set; }
+        public string NewPassword { get; set; }
+    }
+
+    public class UserRoleDto
+    {
+        public Guid UserId { get; set; }
+        public int RoleId { get; set; }
+        public string RoleName { get; set; }
+    }
+
+    public class UserRoleCreateDto
+    {
+        public Guid UserId { get; set; }
+        public int RoleId { get; set; }
+    }
+
+    public class UserRoleUpdateDto
+    {
+        public Guid UserId { get; set; }
+        public int OldRoleId { get; set; }
+        public int NewRoleId { get; set; }
+    }
+
+    public class UserRoleDeleteDto
+    {
+        public Guid UserId { get; set; }
+        public int RoleId { get; set; }
     }
 }

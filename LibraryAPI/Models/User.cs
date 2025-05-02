@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace LibraryAPI.Models
 {
@@ -55,10 +56,11 @@ namespace LibraryAPI.Models
         public decimal FineAmount { get; set; } = 0; // кол-во задолженностей
 
         // Система ролей
-        public List<UserRole> UserRoles { get; set; } = new List<UserRole>();
+        [InverseProperty("User")]
+        public List<UserRole>? UserRoles { get; set; }
 
         // Навигационное свойство для связанных книг
-        public List<Book> BorrowedBooks { get; set; } = new List<Book>();
+        public List<Book>? BorrowedBooks { get; set; }
     }
 
     public class Role
@@ -72,16 +74,19 @@ namespace LibraryAPI.Models
 
         public string? Description { get; set; }
 
+        [InverseProperty("Role")]
         public List<UserRole> UserRoles { get; set; } = new List<UserRole>();
     }
 
     public class UserRole
     {
-        [Key]
         public Guid UserId { get; set; }
+        public int RoleId { get; set; }
+
+        [ForeignKey("UserId")]
         public User User { get; set; }
 
-        public int RoleId { get; set; }
+        [ForeignKey("RoleId")]
         public Role Role { get; set; }
     }
 }

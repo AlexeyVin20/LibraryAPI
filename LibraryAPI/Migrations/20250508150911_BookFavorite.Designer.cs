@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using LibraryAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LibraryAPI.Migrations
 {
     [DbContext(typeof(LibraryDbContext))]
-    partial class LibraryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250508150911_BookFavorite")]
+    partial class BookFavorite
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -208,57 +211,18 @@ namespace LibraryAPI.Migrations
                     b.Property<string>("UDK")
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AuthorId");
 
                     b.HasIndex("ShelfId");
 
+                    b.HasIndex("UserId");
+
                     b.ToTable("Books", (string)null);
-                });
-
-            modelBuilder.Entity("LibraryAPI.Models.BorrowedBook", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("BookId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("BorrowDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("DueDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<decimal?>("FineAmount")
-                        .HasColumnType("numeric");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<DateTime?>("ReturnDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BookId");
-
-                    b.HasIndex("DueDate")
-                        .HasDatabaseName("IX_BorrowedBooks_DueDate");
-
-                    b.HasIndex("ReturnDate")
-                        .HasDatabaseName("IX_BorrowedBooks_ReturnDate");
-
-                    b.HasIndex("UserId", "BorrowDate")
-                        .HasDatabaseName("IX_BorrowedBooks_UserId_BorrowDate");
-
-                    b.ToTable("BorrowedBooks");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.FavoriteBook", b =>
@@ -277,63 +241,6 @@ namespace LibraryAPI.Migrations
                     b.HasIndex("BookId");
 
                     b.ToTable("FavoriteBooks");
-                });
-
-            modelBuilder.Entity("LibraryAPI.Models.FineRecord", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("numeric");
-
-                    b.Property<DateTime?>("CalculatedForDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FineType")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<bool>("IsPaid")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<int?>("OverdueDays")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("PaidAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<Guid?>("ReservationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IsPaid")
-                        .HasDatabaseName("IX_FineRecords_IsPaid");
-
-                    b.HasIndex("UserId", "CreatedAt")
-                        .HasDatabaseName("IX_FineRecords_UserId_CreatedAt");
-
-                    b.HasIndex("ReservationId", "CalculatedForDate", "FineType")
-                        .HasDatabaseName("IX_FineRecords_Reservation_Date_Type");
-
-                    b.ToTable("FineRecords");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.Issue", b =>
@@ -450,70 +357,6 @@ namespace LibraryAPI.Migrations
                     b.ToTable("Journals");
                 });
 
-            modelBuilder.Entity("LibraryAPI.Models.Notification", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("AdditionalData")
-                        .HasColumnType("text");
-
-                    b.Property<Guid?>("BookId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("BorrowedBookId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DeliveredAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsDelivered")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<int>("Priority")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("ReadAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BookId");
-
-                    b.HasIndex("BorrowedBookId");
-
-                    b.HasIndex("IsRead")
-                        .HasDatabaseName("IX_Notifications_IsRead");
-
-                    b.HasIndex("UserId", "CreatedAt")
-                        .HasDatabaseName("IX_Notifications_UserId_CreatedAt");
-
-                    b.ToTable("Notifications");
-                });
-
             modelBuilder.Entity("LibraryAPI.Models.RefreshToken", b =>
                 {
                     b.Property<int>("Id")
@@ -550,9 +393,6 @@ namespace LibraryAPI.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("ActualReturnDate")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("BookId")
                         .HasColumnType("uuid");
@@ -748,26 +588,11 @@ namespace LibraryAPI.Migrations
                         .WithMany("Books")
                         .HasForeignKey("ShelfId");
 
-                    b.Navigation("Shelf");
-                });
-
-            modelBuilder.Entity("LibraryAPI.Models.BorrowedBook", b =>
-                {
-                    b.HasOne("LibraryAPI.Models.Book", "Book")
-                        .WithMany()
-                        .HasForeignKey("BookId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("LibraryAPI.Models.User", "User")
+                    b.HasOne("LibraryAPI.Models.User", null)
                         .WithMany("BorrowedBooks")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("UserId");
 
-                    b.Navigation("Book");
-
-                    b.Navigation("User");
+                    b.Navigation("Shelf");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.FavoriteBook", b =>
@@ -789,24 +614,6 @@ namespace LibraryAPI.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("LibraryAPI.Models.FineRecord", b =>
-                {
-                    b.HasOne("LibraryAPI.Models.Reservation", "Reservation")
-                        .WithMany()
-                        .HasForeignKey("ReservationId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("LibraryAPI.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Reservation");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("LibraryAPI.Models.Issue", b =>
                 {
                     b.HasOne("LibraryAPI.Models.Journal", "Journal")
@@ -816,31 +623,6 @@ namespace LibraryAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("Journal");
-                });
-
-            modelBuilder.Entity("LibraryAPI.Models.Notification", b =>
-                {
-                    b.HasOne("LibraryAPI.Models.Book", "Book")
-                        .WithMany()
-                        .HasForeignKey("BookId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("LibraryAPI.Models.BorrowedBook", "BorrowedBook")
-                        .WithMany()
-                        .HasForeignKey("BorrowedBookId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("LibraryAPI.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Book");
-
-                    b.Navigation("BorrowedBook");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.RefreshToken", b =>

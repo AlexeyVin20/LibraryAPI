@@ -16,6 +16,7 @@ namespace LibraryAPI.Models
 
         public DateTime ReservationDate { get; set; }
         public DateTime ExpirationDate { get; set; }
+        public DateTime? ActualReturnDate { get; set; }
         public ReservationStatus Status { get; set; }
 
         [MaxLength(255)]
@@ -25,8 +26,12 @@ namespace LibraryAPI.Models
     public enum ReservationStatus
     {
         Обрабатывается,
-        Выполнена,
+        Одобрена,
         Отменена,
-        Истекла
+        Истекла,
+        Выдана,
+        Возвращена,
+        Просрочена,
+        Отменена_пользователем,
     }
 }

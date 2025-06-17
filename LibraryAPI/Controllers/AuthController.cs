@@ -97,16 +97,18 @@ namespace LibraryAPI.Controllers
         /// </summary>
         /// <remarks>
         /// Требуется JWT-токен в заголовке Authorization в формате Bearer.
+        /// Работает как с HTTP, так и с HTTPS соединениями.
         /// </remarks>
         /// <returns>Информация о пользователе</returns>
         /// <response code="200">Информация о пользователе</response>
         /// <response code="401">Не авторизован</response>
         [HttpGet("session")]
+        [Authorize]
         [ProducesResponseType(typeof(AuthUserDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [SwaggerOperation(
             Summary = "Получение информации о текущем пользователе",
-            Description = "Требуется JWT Bearer токен в заголовке Authorization. Пример: `Authorization: Bearer {ваш_токен}`"
+            Description = "Требуется JWT Bearer токен в заголовке Authorization. Пример: `Authorization: Bearer {ваш_токен}`. Поддерживает HTTP и HTTPS."
         )]
         public async Task<IActionResult> GetSession()
         {

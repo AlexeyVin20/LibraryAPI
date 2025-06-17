@@ -1,0 +1,152 @@
+/* Кастомные стили для Swagger UI с JWT авторизацией */
+
+/* Улучшение кнопки авторизации */
+.btn.authorize {
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+    color: white !important;
+    font-weight: bold;
+    padding: 8px 16px;
+    border-radius: 4px;
+}
+
+.btn.authorize:hover {
+    background-color: #218838 !important;
+    border-color: #1e7e34 !important;
+}
+
+/* Стили для модального окна авторизации */
+.auth-container .auth-btn-wrapper {
+    text-align: center;
+    padding: 10px;
+}
+
+.auth-container .auth-btn-wrapper .btn-done {
+    background-color: #007bff !important;
+    border-color: #007bff !important;
+    color: white !important;
+    margin-right: 10px;
+}
+
+.auth-container .auth-btn-wrapper .btn-cancel {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: white !important;
+}
+
+/* Улучшение поля ввода токена */
+.auth-container input[type="text"] {
+    width: 100% !important;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+/* Стили для описания авторизации */
+.auth-container .auth-container-description {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 15px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* Выделение важной информации */
+.auth-container .auth-container-description strong {
+    color: #007bff;
+}
+
+/* Стили для заголовков методов */
+.opblock-summary-method {
+    font-weight: bold !important;
+}
+
+/* Цветовая схема для разных методов */
+.opblock.opblock-post .opblock-summary-method {
+    background-color: #49cc90 !important;
+}
+
+.opblock.opblock-get .opblock-summary-method {
+    background-color: #61affe !important;
+}
+
+.opblock.opblock-put .opblock-summary-method {
+    background-color: #fca130 !important;
+}
+
+.opblock.opblock-delete .opblock-summary-method {
+    background-color: #f93e3e !important;
+}
+
+/* Улучшение отображения ответов */
+.responses-inner h4 {
+    color: #333;
+    font-weight: bold;
+}
+
+/* Стили для кода ответа */
+.response-col_status {
+    font-weight: bold;
+}
+
+/* Улучшение кнопки "Try it out" */
+.btn.try-out__btn {
+    background-color: #17a2b8 !important;
+    border-color: #17a2b8 !important;
+    color: white !important;
+}
+
+.btn.try-out__btn:hover {
+    background-color: #138496 !important;
+    border-color: #117a8b !important;
+}
+
+/* Стили для успешных ответов */
+.response.highlighted {
+    border-left: 4px solid #28a745;
+}
+
+/* Улучшение отображения JSON */
+.highlight-code {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+/* Стили для заголовка Swagger */
+.info .title {
+    color: #333 !important;
+    font-size: 36px !important;
+    font-weight: bold !important;
+}
+
+/* Добавление отступов */
+.swagger-ui .wrapper {
+    padding: 0 20px;
+}
+
+/* Улучшение читаемости параметров */
+.parameters-col_description p {
+    margin-bottom: 5px;
+}
+
+/* Стили для обязательных параметров */
+.parameter__name.required::after {
+    content: " *";
+    color: #f93e3e;
+    font-weight: bold;
+}
+
+/* Улучшение отображения схем */
+.model-box {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 10px;
+    margin: 10px 0;
+} 

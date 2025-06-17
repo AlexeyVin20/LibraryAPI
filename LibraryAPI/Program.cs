@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
 using LibraryAPI.Services;
 using LibraryAPI.Models;
+using LibraryAPI.Hubs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -21,6 +22,13 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSet
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 
+// Регистрация сервисов уведомлений
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddHostedService<NotificationBackgroundService>();
+
+// Добавление SignalR для push уведомлений
+builder.Services.AddSignalR();
+
 // Настройка аутентификации
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
 builder.Services.AddAuthentication(options => 
@@ -34,17 +42,65 @@ builder.Services.AddAuthentication(options =>
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(jwtSettings.SecretKey)),
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
         ValidateIssuer = true,
         ValidIssuer = jwtSettings.Issuer,
         ValidateAudience = true,
         ValidAudience = jwtSettings.Audience,
         ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero
+        ClockSkew = TimeSpan.Zero,
+        RequireExpirationTime = true,
+        RequireSignedTokens = true
     };
     
     options.SaveToken = true;
     options.RequireHttpsMetadata = false;
+    
+    // Добавляем обработку событий для отладки
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
+        {
+            Console.WriteLine($"JWT Authentication failed: {context.Exception.Message}");
+            Console.WriteLine($"Request scheme: {context.Request.Scheme}, Host: {context.Request.Host}");
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            Console.WriteLine($"JWT Token validated successfully for scheme: {context.Request.Scheme}");
+            return Task.CompletedTask;
+        },
+        OnMessageReceived = context =>
+        {
+            Console.WriteLine($"JWT Message received for scheme: {context.Request.Scheme}, Path: {context.Request.Path}");
+            
+            // Для SignalR: токен может приходить в query string как access_token
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
+            {
+                context.Token = accessToken;
+                Console.WriteLine("Using access_token from query string for SignalR");
+            }
+            else
+            {
+                // Обычный способ — из заголовка
+                var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer "))
+                {
+                    context.Token = authHeader.Substring(7);
+                    Console.WriteLine("Using Bearer token from Authorization header");
+                }
+            }
+            return Task.CompletedTask;
+        },
+        OnChallenge = context =>
+        {
+            Console.WriteLine($"JWT Challenge: {context.Error} - {context.ErrorDescription}");
+            Console.WriteLine($"Request scheme: {context.Request.Scheme}, Host: {context.Request.Host}");
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddControllers()
@@ -67,7 +123,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Библиотечная система API",
         Version = "3.0.0",
-        Description = "API для управления библиотечной системой",
+        Description = "API для управления библиотечной системой с JWT аутентификацией",
         Contact = new OpenApiContact
         {
             Name = "Поддержка",
@@ -83,7 +139,15 @@ builder.Services.AddSwaggerGen(options =>
     // Добавление поддержки JWT-токенов в Swagger
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT токен авторизации (используйте 'Bearer ваш_токен')",
+        Description = @"JWT токен авторизации. 
+                      
+                      Для получения токена:
+                      1. Выполните POST запрос к /auth/login с логином и паролем
+                      2. Скопируйте значение 'accessToken' из ответа
+                      3. Введите только токен (без 'Bearer') в поле ниже
+                      4. Нажмите 'Authorize'
+                      
+                      Пример токена: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
@@ -91,7 +155,7 @@ builder.Services.AddSwaggerGen(options =>
         BearerFormat = "JWT"
     });
 
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement()
     {
         {
             new OpenApiSecurityScheme
@@ -100,9 +164,12 @@ builder.Services.AddSwaggerGen(options =>
                 {
                     Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
-                }
+                },
+                Scheme = "bearer",
+                Name = "Bearer",
+                In = ParameterLocation.Header,
             },
-            new string[] {}
+            new List<string>()
         }
     });
 
@@ -131,10 +198,16 @@ builder.Services.AddSwaggerGenNewtonsoftSupport();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
-        builder => builder
-            .AllowAnyOrigin() 
-            .AllowAnyMethod()    
-            .AllowAnyHeader());   
+        policyBuilder => policyBuilder
+            // Указываем конкретные разрешенные источники. 
+            // Добавьте сюда URL вашего фронтенда, если он отличается.
+            .WithOrigins("https://localhost:3000", "http://localhost:3000", 
+                        "https://localhost:3002", "http://localhost:3002",
+                        "https://172.18.0.1:3002", "http://172.18.0.1:3002",
+                        "http://localhost:5001", "https://localhost:5000")
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials()); // Обязательно для SignalR с аутентификацией
 });
 
 var app = builder.Build();
@@ -152,18 +225,38 @@ if (app.Environment.IsDevelopment())
         c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
         c.EnableDeepLinking();
         c.DisplayRequestDuration();
+        c.EnablePersistAuthorization(); // Сохраняет токен между сессиями
+        c.EnableTryItOutByDefault(); // Включает "Try it out" по умолчанию
         c.SupportedSubmitMethods(Swashbuckle.AspNetCore.SwaggerUI.SubmitMethod.Get, 
                                Swashbuckle.AspNetCore.SwaggerUI.SubmitMethod.Post,
                                Swashbuckle.AspNetCore.SwaggerUI.SubmitMethod.Put,
                                Swashbuckle.AspNetCore.SwaggerUI.SubmitMethod.Delete);
+        
+        // Настройка темы и отображения
+        c.DefaultModelExpandDepth(2);
+        c.DefaultModelRendering(Swashbuckle.AspNetCore.SwaggerUI.ModelRendering.Example);
+        c.DisplayOperationId();
+        c.DisplayRequestDuration();
     });
 }
 
 app.UseCors("AllowAll");
 
-app.UseHttpsRedirection();
+// Условное перенаправление на HTTPS только для production
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+// Добавляем поддержку статических файлов для кастомных CSS/JS
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Добавление маршрутов SignalR
+app.MapHub<NotificationHub>("/notificationHub");
+
 app.MapControllers();
 
 app.Urls.Add("http://*:5001");

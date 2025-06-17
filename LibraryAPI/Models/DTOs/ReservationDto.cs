@@ -7,6 +7,7 @@
         public Guid BookId { get; set; }
         public DateTime ReservationDate { get; set; }
         public DateTime ExpirationDate { get; set; }
+        public DateTime? ActualReturnDate { get; set; }
         public string Status { get; set; }
         public string Notes { get; set; }
         public UserDto User { get; set; }

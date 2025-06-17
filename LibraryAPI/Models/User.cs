@@ -59,8 +59,12 @@ namespace LibraryAPI.Models
         [InverseProperty("User")]
         public List<UserRole>? UserRoles { get; set; }
 
-        // Навигационное свойство для связанных книг
-        public List<Book>? BorrowedBooks { get; set; }
+        // Навигационное свойство для взятых книг
+        public List<BorrowedBook>? BorrowedBooks { get; set; }
+        
+        // Избранные книги
+        [InverseProperty("User")]
+        public List<FavoriteBook>? FavoriteBooks { get; set; }
     }
 
     public class Role

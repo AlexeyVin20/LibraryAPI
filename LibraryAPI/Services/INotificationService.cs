@@ -24,11 +24,16 @@ namespace LibraryAPI.Services
         Task<bool> MarkAsReadAsync(Guid notificationId, Guid userId);
         Task<bool> MarkMultipleAsReadAsync(List<Guid> notificationIds, Guid userId);
         Task<bool> MarkAllAsReadAsync(Guid userId);
+        Task<bool> DeleteNotificationAsync(Guid notificationId, Guid userId);
         
         // Получение уведомлений
         Task<List<NotificationDto>> GetUserNotificationsAsync(Guid userId, bool? isRead = null, int page = 1, int pageSize = 20);
         Task<NotificationStatsDto> GetUserNotificationStatsAsync(Guid userId);
         Task<int> GetUnreadCountAsync(Guid userId);
+        
+        // Административные методы для получения всех уведомлений
+        Task<List<AdminNotificationDto>> GetAllNotificationsAsync(bool? isRead = null, int page = 1, int pageSize = 20, Guid? userId = null, NotificationType? type = null, NotificationPriority? priority = null);
+        Task<AdminNotificationStatsDto> GetAllNotificationStatsAsync();
         
         // Push уведомления (реальное время)
         Task SendPushNotificationAsync(Guid userId, string title, string message, NotificationType type);

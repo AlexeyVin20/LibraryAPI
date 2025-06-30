@@ -62,6 +62,49 @@ namespace LibraryAPI.Controllers
         }
 
         /// <summary>
+        /// Получение всех уведомлений всех пользователей (только для Администратор/Библиотекарь)
+        /// </summary>
+        /// <param name="isRead">Фильтр по статусу прочтения (null - все, true - прочитанные, false - непрочитанные)</param>
+        /// <param name="page">Номер страницы (по умолчанию 1)</param>
+        /// <param name="pageSize">Размер страницы (по умолчанию 20)</param>
+        /// <param name="userId">Фильтр по пользователю (необязательно)</param>
+        /// <param name="type">Фильтр по типу уведомления (необязательно)</param>
+        /// <param name="priority">Фильтр по приоритету (необязательно)</param>
+        /// <returns>Список всех уведомлений с информацией о пользователях</returns>
+        /// <response code="200">Список уведомлений успешно получен</response>
+        /// <response code="401">Пользователь не авторизован</response>
+        /// <response code="403">Недостаточно прав доступа</response>
+        [HttpGet("admin/all")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        [ProducesResponseType(typeof(List<AdminNotificationDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [SwaggerOperation(
+            Summary = "Получение всех уведомлений всех пользователей",
+            Description = "Требуется JWT Bearer токен в заголовке Authorization и роль Администратор или Библиотекарь. Возвращает список всех уведомлений с информацией о пользователях, с возможностью фильтрации и пагинации."
+        )]
+        public async Task<IActionResult> GetAllNotifications(
+            [FromQuery] bool? isRead = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] Guid? userId = null,
+            [FromQuery] Models.NotificationType? type = null,
+            [FromQuery] Models.NotificationPriority? priority = null)
+        {
+            try
+            {
+                var user = await _authService.GetUserFromToken(User);
+                var notifications = await _notificationService.GetAllNotificationsAsync(isRead, page, pageSize, userId, type, priority);
+                return Ok(notifications);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка получения всех уведомлений");
+                return Unauthorized(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Получение статистики уведомлений пользователя
         /// </summary>
         /// <returns>Статистика уведомлений (общее количество, непрочитанные, по типам и приоритетам)</returns>
@@ -86,6 +129,37 @@ namespace LibraryAPI.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Ошибка получения статистики уведомлений для пользователя");
+                return Unauthorized(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Получение административной статистики по всем уведомлениям (только для Администратор/Библиотекарь)
+        /// </summary>
+        /// <returns>Детальная статистика по всем уведомлениям в системе</returns>
+        /// <response code="200">Статистика успешно получена</response>
+        /// <response code="401">Пользователь не авторизован</response>
+        /// <response code="403">Недостаточно прав доступа</response>
+        [HttpGet("admin/stats")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        [ProducesResponseType(typeof(AdminNotificationStatsDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [SwaggerOperation(
+            Summary = "Получение административной статистики по всем уведомлениям",
+            Description = "Требуется JWT Bearer токен в заголовке Authorization и роль Администратор или Библиотекарь. Возвращает детальную статистику по всем уведомлениям в системе, включая информацию о пользователях и активности за последние дни."
+        )]
+        public async Task<IActionResult> GetAdminNotificationStats()
+        {
+            try
+            {
+                var user = await _authService.GetUserFromToken(User);
+                var stats = await _notificationService.GetAllNotificationStatsAsync();
+                return Ok(stats);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка получения административной статистики уведомлений");
                 return Unauthorized(new { message = ex.Message });
             }
         }
@@ -374,6 +448,41 @@ namespace LibraryAPI.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Ошибка отправки уведомлений о штрафах");
+                return Unauthorized(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Удаление уведомления
+        /// </summary>
+        /// <param name="notificationId">ID уведомления для удаления</param>
+        /// <returns>Результат операции</returns>
+        /// <response code="200">Уведомление успешно удалено</response>
+        /// <response code="401">Пользователь не авторизован</response>
+        /// <response code="404">Уведомление не найдено</response>
+        [HttpDelete("{notificationId}")]
+        [Authorize]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [SwaggerOperation(
+            Summary = "Удаление уведомления",
+            Description = "Требуется JWT Bearer токен в заголовке Authorization. Удаляет указанное уведомление пользователя."
+        )]
+        public async Task<IActionResult> DeleteNotification(Guid notificationId)
+        {
+            try
+            {
+                var user = await _authService.GetUserFromToken(User);
+                var result = await _notificationService.DeleteNotificationAsync(notificationId, user.Id);
+                if (!result)
+                    return NotFound(new { message = "Уведомление не найдено" });
+
+                return Ok(new { message = "Уведомление успешно удалено" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка удаления уведомления {NotificationId}", notificationId);
                 return Unauthorized(new { message = ex.Message });
             }
         }

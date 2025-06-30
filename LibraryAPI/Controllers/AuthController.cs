@@ -110,6 +110,10 @@ namespace LibraryAPI.Controllers
             Summary = "Получение информации о текущем пользователе",
             Description = "Требуется JWT Bearer токен в заголовке Authorization. Пример: `Authorization: Bearer {ваш_токен}`. Поддерживает HTTP и HTTPS."
         )]
+
+        /*[HttpPost("session")]
+        [ProducesResponseType(typeof(AuthUserDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]*/
         public async Task<IActionResult> GetSession()
         {
             try

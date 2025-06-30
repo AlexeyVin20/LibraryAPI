@@ -344,6 +344,21 @@ namespace LibraryAPI.Services
             return true;
         }
 
+        public async Task<bool> DeleteNotificationAsync(Guid notificationId, Guid userId)
+        {
+            var notification = await _context.Notifications
+                .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == userId);
+
+            if (notification == null)
+                return false;
+
+            _context.Notifications.Remove(notification);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation($"Удалено уведомление {notificationId} пользователя {userId}");
+            return true;
+        }
+
         public async Task<List<NotificationDto>> GetUserNotificationsAsync(Guid userId, bool? isRead = null, int page = 1, int pageSize = 20)
         {
             var query = _context.Notifications
@@ -412,6 +427,117 @@ namespace LibraryAPI.Services
         {
             return await _context.Notifications
                 .CountAsync(n => n.UserId == userId && !n.IsRead);
+        }
+
+        public async Task<List<AdminNotificationDto>> GetAllNotificationsAsync(bool? isRead = null, int page = 1, int pageSize = 20, Guid? userId = null, NotificationType? type = null, NotificationPriority? priority = null)
+        {
+            var query = _context.Notifications
+                .Include(n => n.User)
+                .Include(n => n.Book)
+                .AsQueryable();
+
+            // Применяем фильтры
+            if (isRead.HasValue)
+                query = query.Where(n => n.IsRead == isRead.Value);
+
+            if (userId.HasValue)
+                query = query.Where(n => n.UserId == userId.Value);
+
+            if (type.HasValue)
+                query = query.Where(n => n.Type == type.Value);
+
+            if (priority.HasValue)
+                query = query.Where(n => n.Priority == priority.Value);
+
+            // Применяем пагинацию и сортировку
+            var notifications = await query
+                .OrderByDescending(n => n.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(n => new AdminNotificationDto
+                {
+                    Id = n.Id,
+                    UserId = n.UserId,
+                    UserFullName = n.User.FullName,
+                    UserEmail = n.User.Email,
+                    Title = n.Title,
+                    Message = n.Message,
+                    Type = n.Type.ToString(),
+                    Priority = n.Priority.ToString(),
+                    CreatedAt = n.CreatedAt,
+                    IsRead = n.IsRead,
+                    ReadAt = n.ReadAt,
+                    IsDelivered = n.IsDelivered,
+                    DeliveredAt = n.DeliveredAt,
+                    AdditionalData = n.AdditionalData,
+                    BookId = n.BookId,
+                    BorrowedBookId = n.BorrowedBookId,
+                    BookTitle = n.Book != null ? n.Book.Title : null,
+                    BookAuthors = n.Book != null ? n.Book.Authors : null,
+                    BookCover = n.Book != null ? n.Book.Cover : null
+                })
+                .ToListAsync();
+
+            return notifications;
+        }
+
+        public async Task<AdminNotificationStatsDto> GetAllNotificationStatsAsync()
+        {
+            var allNotifications = await _context.Notifications
+                .Include(n => n.User)
+                .ToListAsync();
+
+            var totalUsers = await _context.Users.CountAsync();
+            var usersWithNotifications = await _context.Notifications
+                .Select(n => n.UserId)
+                .Distinct()
+                .CountAsync();
+
+            var usersWithUnreadNotifications = await _context.Notifications
+                .Where(n => !n.IsRead)
+                .Select(n => n.UserId)
+                .Distinct()
+                .CountAsync();
+
+            // Статистика по дням за последние 7 дней
+            var last7Days = Enumerable.Range(0, 7)
+                .Select(i => DateTime.UtcNow.Date.AddDays(-i))
+                .ToList();
+
+            var notificationsLastDays = new Dictionary<string, int>();
+            foreach (var day in last7Days)
+            {
+                var count = allNotifications.Count(n => n.CreatedAt.Date == day);
+                notificationsLastDays.Add(day.ToString("dd.MM"), count);
+            }
+
+            // Топ-5 пользователей с наибольшим количеством уведомлений
+            var topUsers = allNotifications
+                .GroupBy(n => n.User.FullName)
+                .OrderByDescending(g => g.Count())
+                .Take(5)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            var stats = new AdminNotificationStatsDto
+            {
+                TotalNotifications = allNotifications.Count,
+                UnreadNotifications = allNotifications.Count(n => !n.IsRead),
+                DeliveredNotifications = allNotifications.Count(n => n.IsDelivered),
+                PendingNotifications = allNotifications.Count(n => !n.IsDelivered),
+                TotalUsers = totalUsers,
+                UsersWithNotifications = usersWithNotifications,
+                UsersWithUnreadNotifications = usersWithUnreadNotifications,
+                NotificationsByType = allNotifications
+                    .GroupBy(n => n.Type.ToString())
+                    .ToDictionary(g => g.Key, g => g.Count()),
+                NotificationsByPriority = allNotifications
+                    .GroupBy(n => n.Priority.ToString())
+                    .ToDictionary(g => g.Key, g => g.Count()),
+                NotificationsLastDays = notificationsLastDays,
+                TopUsersWithNotifications = topUsers
+            };
+
+            return stats;
         }
 
         public async Task SendPushNotificationAsync(Guid userId, string title, string message, NotificationType type)

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using LibraryAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LibraryAPI.Migrations
 {
     [DbContext(typeof(LibraryDbContext))]
-    partial class LibraryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250630160546_AddBookInstancesTable")]
+    partial class AddBookInstancesTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -67,7 +70,7 @@ namespace LibraryAPI.Migrations
 
                     b.HasIndex("IssueId");
 
-                    b.ToTable("Articles", (string)null);
+                    b.ToTable("Articles");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.Author", b =>
@@ -102,7 +105,7 @@ namespace LibraryAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Authors", (string)null);
+                    b.ToTable("Authors");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.Book", b =>
@@ -287,7 +290,7 @@ namespace LibraryAPI.Migrations
                     b.HasIndex("ShelfId", "Position")
                         .HasDatabaseName("IX_BookInstances_ShelfId_Position");
 
-                    b.ToTable("BookInstances", (string)null);
+                    b.ToTable("BookInstances");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.BorrowedBook", b =>
@@ -331,7 +334,7 @@ namespace LibraryAPI.Migrations
                     b.HasIndex("UserId", "BorrowDate")
                         .HasDatabaseName("IX_BorrowedBooks_UserId_BorrowDate");
 
-                    b.ToTable("BorrowedBooks", (string)null);
+                    b.ToTable("BorrowedBooks");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.FavoriteBook", b =>
@@ -349,7 +352,7 @@ namespace LibraryAPI.Migrations
 
                     b.HasIndex("BookId");
 
-                    b.ToTable("FavoriteBooks", (string)null);
+                    b.ToTable("FavoriteBooks");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.FineRecord", b =>
@@ -406,7 +409,7 @@ namespace LibraryAPI.Migrations
                     b.HasIndex("ReservationId", "CalculatedForDate", "FineType")
                         .HasDatabaseName("IX_FineRecords_Reservation_Date_Type");
 
-                    b.ToTable("FineRecords", (string)null);
+                    b.ToTable("FineRecords");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.Issue", b =>
@@ -451,7 +454,7 @@ namespace LibraryAPI.Migrations
 
                     b.HasIndex("JournalId");
 
-                    b.ToTable("Issues", (string)null);
+                    b.ToTable("Issues");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.Journal", b =>
@@ -520,7 +523,7 @@ namespace LibraryAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Journals", (string)null);
+                    b.ToTable("Journals");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.Notification", b =>
@@ -584,7 +587,7 @@ namespace LibraryAPI.Migrations
                     b.HasIndex("UserId", "CreatedAt")
                         .HasDatabaseName("IX_Notifications_UserId_CreatedAt");
 
-                    b.ToTable("Notifications", (string)null);
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.RefreshToken", b =>
@@ -615,7 +618,7 @@ namespace LibraryAPI.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens", (string)null);
+                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.Reservation", b =>
@@ -628,9 +631,6 @@ namespace LibraryAPI.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("BookId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("BookInstanceId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime>("ExpirationDate")
@@ -653,11 +653,9 @@ namespace LibraryAPI.Migrations
 
                     b.HasIndex("BookId");
 
-                    b.HasIndex("BookInstanceId");
-
                     b.HasIndex("UserId");
 
-                    b.ToTable("Reservations", (string)null);
+                    b.ToTable("Reservations");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.Role", b =>
@@ -678,7 +676,7 @@ namespace LibraryAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Roles", (string)null);
+                    b.ToTable("Roles");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.Shelf", b =>
@@ -787,7 +785,7 @@ namespace LibraryAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.UserRole", b =>
@@ -802,7 +800,7 @@ namespace LibraryAPI.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("UserRoles", (string)null);
+                    b.ToTable("UserRoles");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.Article", b =>
@@ -958,11 +956,6 @@ namespace LibraryAPI.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("LibraryAPI.Models.BookInstance", "BookInstance")
-                        .WithMany()
-                        .HasForeignKey("BookInstanceId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("LibraryAPI.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -970,8 +963,6 @@ namespace LibraryAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("Book");
-
-                    b.Navigation("BookInstance");
 
                     b.Navigation("User");
                 });

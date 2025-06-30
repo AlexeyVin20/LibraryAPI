@@ -14,6 +14,10 @@ namespace LibraryAPI.Models
         public Guid BookId { get; set; }
         public Book Book { get; set; }
 
+        // Конкретный экземпляр книги, который выдан пользователю
+        public Guid? BookInstanceId { get; set; }
+        public BookInstance? BookInstance { get; set; }
+
         public DateTime ReservationDate { get; set; }
         public DateTime ExpirationDate { get; set; }
         public DateTime? ActualReturnDate { get; set; }

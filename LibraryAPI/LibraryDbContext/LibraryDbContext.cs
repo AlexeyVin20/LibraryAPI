@@ -23,6 +23,7 @@ namespace LibraryAPI.Data
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<BorrowedBook> BorrowedBooks { get; set; }
         public DbSet<FineRecord> FineRecords { get; set; }
+        public DbSet<BookInstance> BookInstances { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -138,6 +139,39 @@ namespace LibraryAPI.Data
             modelBuilder.Entity<FineRecord>()
                 .HasIndex(fr => new { fr.ReservationId, fr.CalculatedForDate, fr.FineType })
                 .HasDatabaseName("IX_FineRecords_Reservation_Date_Type");
+            
+            // Конфигурация для BookInstance
+            modelBuilder.Entity<BookInstance>()
+                .HasOne(bi => bi.Book)
+                .WithMany()
+                .HasForeignKey(bi => bi.BookId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            modelBuilder.Entity<BookInstance>()
+                .HasOne(bi => bi.Shelf)
+                .WithMany()
+                .HasForeignKey(bi => bi.ShelfId)
+                .OnDelete(DeleteBehavior.SetNull);
+                
+            modelBuilder.Entity<BookInstance>()
+                .HasIndex(bi => bi.InstanceCode)
+                .IsUnique()
+                .HasDatabaseName("IX_BookInstances_InstanceCode");
+                
+            modelBuilder.Entity<BookInstance>()
+                .HasIndex(bi => new { bi.BookId, bi.Status })
+                .HasDatabaseName("IX_BookInstances_BookId_Status");
+                
+            modelBuilder.Entity<BookInstance>()
+                .HasIndex(bi => new { bi.ShelfId, bi.Position })
+                .HasDatabaseName("IX_BookInstances_ShelfId_Position");
+
+            // Конфигурация связи Reservation -> BookInstance
+            modelBuilder.Entity<Reservation>()
+                .HasOne(r => r.BookInstance)
+                .WithMany()
+                .HasForeignKey(r => r.BookInstanceId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

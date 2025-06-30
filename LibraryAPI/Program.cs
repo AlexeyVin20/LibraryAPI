@@ -26,6 +26,9 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddHostedService<NotificationBackgroundService>();
 
+// Регистрация сервиса для работы с экземплярами книг
+builder.Services.AddScoped<IBookInstanceAllocationService, BookInstanceAllocationService>();
+
 // Добавление SignalR для push уведомлений
 builder.Services.AddSignalR();
 

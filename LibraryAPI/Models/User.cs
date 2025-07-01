@@ -22,19 +22,6 @@ namespace LibraryAPI.Models
         [Phone]
         public string? Phone { get; set; }
 
-        public DateTime DateOfBirth { get; set; }
-
-        [Required]
-        [MaxLength(20)]
-        public string? PassportNumber { get; set; }
-
-        [Required]
-        [MaxLength(255)]
-        public string? PassportIssuedBy { get; set; }
-
-        public DateTime? PassportIssuedDate { get; set; }
-
-        public string? Address { get; set; }
         public DateTime DateRegistered { get; set; } = DateTime.UtcNow;
 
         // Новые поля

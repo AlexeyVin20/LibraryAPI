@@ -85,7 +85,7 @@ namespace LibraryAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<UserDto>> CreateUser([FromBody] UserCreateDto userDto)
         {
-            string passwordHash = BCrypt.Net.BCrypt.HashPassword(userDto.Password);
+            string passwordHash = BCrypt.Net.BCrypt.HashPassword(userDto.Password, BCrypt.Net.BCrypt.GenerateSalt(12));
             var user = new User
             {
                 Id = userDto.Id,
@@ -111,6 +111,34 @@ namespace LibraryAPI.Controllers
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
+
+            // Назначаем роль "Гость" (id = 4) по умолчанию, если роли не были переопределены в запросе
+            if (userDto.UserRoles == null || !userDto.UserRoles.Any())
+            {
+                var guestRoleId = 4;
+                var guestRole = await _context.Set<Role>().FindAsync(guestRoleId);
+                
+                if (guestRole != null)
+                {
+                    var userRole = new UserRole
+                    {
+                        UserId = user.Id,
+                        RoleId = guestRoleId
+                    };
+
+                    _context.Set<UserRole>().Add(userRole);
+                    
+                    try
+                    {
+                        await _context.SaveChangesAsync();
+                    }
+                    catch (DbUpdateException ex)
+                    {
+                        // Если произошла ошибка при назначении роли, логируем её, но не прерываем создание пользователя
+                        // Можно добавить логирование здесь
+                    }
+                }
+            }
 
             return CreatedAtAction(nameof(GetUser), new { id = user.Id }, new UserDto
             {
@@ -187,10 +215,23 @@ namespace LibraryAPI.Controllers
             if (user == null)
                 return NotFound();
 
-            if (!BCrypt.Net.BCrypt.Verify(dto.OldPassword, user.PasswordHash))
-                return BadRequest(new { message = "Старый пароль неверен" });
+            try
+            {
+                if (!BCrypt.Net.BCrypt.Verify(dto.OldPassword, user.PasswordHash))
+                    return BadRequest(new { message = "Старый пароль неверен" });
+            }
+            catch (BCrypt.Net.SaltParseException)
+            {
+                // Если это старый хеш SHA256, проверяем его
+                using var sha256 = System.Security.Cryptography.SHA256.Create();
+                var hashedBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(dto.OldPassword));
+                var sha256Hash = Convert.ToBase64String(hashedBytes);
+                
+                if (sha256Hash != user.PasswordHash)
+                    return BadRequest(new { message = "Старый пароль неверен" });
+            }
 
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword, BCrypt.Net.BCrypt.GenerateSalt(12));
             await _context.SaveChangesAsync();
             return Ok(new { message = "Пароль успешно изменён" });
         }
@@ -722,18 +763,7 @@ namespace LibraryAPI.Controllers
                     : new List<object>()
             }).ToList();
 
-            // Автоматическая отправка напоминаний пользователям с книгами, которые скоро нужно вернуть
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _notificationService.SendDueRemindersToUsersWithBooksAsync();
-                }
-                catch (Exception ex)
-                {
-                    // Логирование ошибки без прерывания основного запроса
-                }
-            });
+
 
             var result = new
             {
@@ -841,19 +871,7 @@ namespace LibraryAPI.Controllers
                 };
             }).ToList();
 
-            // Автоматическая отправка уведомлений о штрафах и просроченных книгах
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _notificationService.SendFineNotificationsToUsersWithFinesAsync();
-                    await _notificationService.SendOverdueNotificationsToUsersWithBooksAsync();
-                }
-                catch (Exception ex)
-                {
-                    // Логирование ошибки без прерывания основного запроса
-                }
-            });
+
 
             var result = new
             {

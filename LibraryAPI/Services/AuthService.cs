@@ -213,15 +213,23 @@ namespace LibraryAPI.Services
 
         private string HashPassword(string password)
         {
-            using var sha256 = SHA256.Create();
-            var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-            return Convert.ToBase64String(hashedBytes);
+            return BCrypt.Net.BCrypt.HashPassword(password, BCrypt.Net.BCrypt.GenerateSalt(12));
         }
 
         private bool VerifyPassword(string password, string passwordHash)
         {
-            var hashedPassword = HashPassword(password);
-            return hashedPassword == passwordHash;
+            try
+            {
+                return BCrypt.Net.BCrypt.Verify(password, passwordHash);
+            }
+            catch (BCrypt.Net.SaltParseException)
+            {
+                // Если это старый хеш SHA256, пытаемся его проверить
+                using var sha256 = SHA256.Create();
+                var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+                var sha256Hash = Convert.ToBase64String(hashedBytes);
+                return sha256Hash == passwordHash;
+            }
         }
     }
 }

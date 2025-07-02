@@ -507,5 +507,127 @@ namespace LibraryAPI.Controllers
                 return BadRequest(new { message = $"Ошибка при удалении книги из избранного: {ex.Message}" });
             }
         }
+
+        [HttpPost("{id}/genre")]
+        public async Task<ActionResult<BookDto>> UpdateBookGenre(Guid id, [FromBody] UpdateGenreDto genreDto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var book = await _context.Books.FindAsync(id);
+            if (book == null)
+                return NotFound(new { Message = "Книга не найдена" });
+
+            book.Genre = genreDto.Genre;
+            book.DateModified = DateTime.UtcNow;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+
+                var bookDto = new BookDto
+                {
+                    Id = book.Id,
+                    Title = book.Title,
+                    Authors = book.Authors,
+                    Genre = book.Genre ?? string.Empty,
+                    Categorization = book.Categorization ?? string.Empty,
+                    UDK = book.UDK ?? string.Empty,
+                    BBK = book.BBK ?? string.Empty,
+                    ISBN = book.ISBN,
+                    Cover = book.Cover ?? string.Empty,
+                    Description = book.Description ?? string.Empty,
+                    Summary = book.Summary ?? string.Empty,
+                    PublicationYear = book.PublicationYear,
+                    Publisher = book.Publisher ?? string.Empty,
+                    PageCount = book.PageCount,
+                    Language = book.Language ?? string.Empty,
+                    AvailableCopies = book.AvailableCopies,
+                    DateAdded = book.DateAdded,
+                    DateModified = book.DateModified,
+                    Edition = book.Edition ?? string.Empty,
+                    Price = book.Price,
+                    Format = book.Format ?? string.Empty,
+                    OriginalTitle = book.OriginalTitle ?? string.Empty,
+                    OriginalLanguage = book.OriginalLanguage ?? string.Empty,
+                    IsEbook = book.IsEbook,
+                    Condition = book.Condition ?? string.Empty,
+                    ShelfId = book.ShelfId,
+                    Position = book.Position
+                };
+
+                return Ok(bookDto);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = $"Ошибка при обновлении жанра книги: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("{id}/categorization")]
+        public async Task<ActionResult<BookDto>> UpdateBookCategorization(Guid id, [FromBody] UpdateCategorizationDto categorizationDto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var book = await _context.Books.FindAsync(id);
+            if (book == null)
+                return NotFound(new { Message = "Книга не найдена" });
+
+            book.Categorization = categorizationDto.Categorization;
+            book.DateModified = DateTime.UtcNow;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+
+                var bookDto = new BookDto
+                {
+                    Id = book.Id,
+                    Title = book.Title,
+                    Authors = book.Authors,
+                    Genre = book.Genre ?? string.Empty,
+                    Categorization = book.Categorization ?? string.Empty,
+                    UDK = book.UDK ?? string.Empty,
+                    BBK = book.BBK ?? string.Empty,
+                    ISBN = book.ISBN,
+                    Cover = book.Cover ?? string.Empty,
+                    Description = book.Description ?? string.Empty,
+                    Summary = book.Summary ?? string.Empty,
+                    PublicationYear = book.PublicationYear,
+                    Publisher = book.Publisher ?? string.Empty,
+                    PageCount = book.PageCount,
+                    Language = book.Language ?? string.Empty,
+                    AvailableCopies = book.AvailableCopies,
+                    DateAdded = book.DateAdded,
+                    DateModified = book.DateModified,
+                    Edition = book.Edition ?? string.Empty,
+                    Price = book.Price,
+                    Format = book.Format ?? string.Empty,
+                    OriginalTitle = book.OriginalTitle ?? string.Empty,
+                    OriginalLanguage = book.OriginalLanguage ?? string.Empty,
+                    IsEbook = book.IsEbook,
+                    Condition = book.Condition ?? string.Empty,
+                    ShelfId = book.ShelfId,
+                    Position = book.Position
+                };
+
+                return Ok(bookDto);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = $"Ошибка при обновлении категоризации книги: {ex.Message}" });
+            }
+        }
+    }
+
+    public class UpdateGenreDto
+    {
+        public string Genre { get; set; } = string.Empty;
+    }
+
+    public class UpdateCategorizationDto
+    {
+        public string Categorization { get; set; } = string.Empty;
     }
 }

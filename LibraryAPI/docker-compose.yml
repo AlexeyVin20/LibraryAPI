@@ -11,6 +11,54 @@
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - library-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: library-minio
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-libraryuser}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-librarypass123}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - library-network
+
+  # Опционально: создание bucket автоматически
+  minio-setup:
+    image: minio/mc:latest
+    container_name: library-minio-setup
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-libraryuser}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-librarypass123}
+    entrypoint: |
+      /bin/sh -c "
+      sleep 10;
+      mc alias set library-minio http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD;
+      mc mb library-minio/book-covers --ignore-existing;
+      mc anonymous set download library-minio/book-covers;
+      echo 'Bucket book-covers создан и настроен для публичного чтения';
+      "
+    networks:
+      - library-network
+
+networks:
+  library-network:
+    driver: bridge
 
 volumes:
   postgres_data:
+  minio_data:

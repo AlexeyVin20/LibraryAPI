@@ -172,6 +172,49 @@ namespace LibraryAPI.Data
                 .WithMany()
                 .HasForeignKey(r => r.BookInstanceId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // Заполнение начальными данными
+            SeedData(modelBuilder);
+        }
+
+        private static void SeedData(ModelBuilder modelBuilder)
+        {
+            // Создание начальных ролей
+            modelBuilder.Entity<Role>().HasData(
+                new Role { Id = 1, Name = "Администратор", Description = "Администратор системы" },
+                new Role { Id = 2, Name = "Библиотекарь", Description = "Библиотекарь" },
+                new Role { Id = 3, Name = "Сотрудник", Description = "Сотрудники МНТК" },
+                new Role { Id = 4, Name = "Гость", Description = "Гости библиотеки" }
+            );
+
+            // Создание административного пользователя
+            // Пароль: Admin123! (предварительно захешированный)
+            var adminUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+            // Статический хеш для пароля "Admin123!" с солью
+            var adminPasswordHash = "$2a$12$8K8VQzjZlZBZyf8GxXQzN.LKGGdHtWxJKYf8L9PQzFqGzYtJzFqGz";
+
+            modelBuilder.Entity<User>().HasData(
+                new User
+                {
+                    Id = adminUserId,
+                    FullName = "Системный Администратор",
+                    Email = "admin@library.com",
+                    Phone = "+7 (999) 999-99-99",
+                    Username = "admin",
+                    PasswordHash = adminPasswordHash,
+                    DateRegistered = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    IsActive = true,
+                    MaxBooksAllowed = 100,
+                    LoanPeriodDays = 30,
+                    BorrowedBooksCount = 0,
+                    FineAmount = 0
+                }
+            );
+
+            // Назначение роли администратора
+            modelBuilder.Entity<UserRole>().HasData(
+                new UserRole { UserId = adminUserId, RoleId = 1 }
+            );
         }
     }
 }

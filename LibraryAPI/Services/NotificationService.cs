@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using LibraryAPI.Hubs;
+using System.Dynamic;
 
 namespace LibraryAPI.Services
 {
@@ -12,16 +13,22 @@ namespace LibraryAPI.Services
     {
         private readonly LibraryDbContext _context;
         private readonly IHubContext<NotificationHub> _hubContext;
+        private readonly IEmailService _emailService;
         private readonly ILogger<NotificationService> _logger;
+        private readonly ITemplateRenderer _templateRenderer;
 
         public NotificationService(
             LibraryDbContext context, 
             IHubContext<NotificationHub> hubContext,
-            ILogger<NotificationService> logger)
+            IEmailService emailService,
+            ILogger<NotificationService> logger,
+            ITemplateRenderer templateRenderer)
         {
             _context = context;
             _hubContext = hubContext;
+            _emailService = emailService;
             _logger = logger;
+            _templateRenderer = templateRenderer;
         }
 
         public async Task<Notification> CreateNotificationAsync(NotificationCreateDto dto)
@@ -36,7 +43,7 @@ namespace LibraryAPI.Services
                 Priority = dto.Priority,
                 AdditionalData = dto.AdditionalData,
                 BookId = dto.BookId,
-                BorrowedBookId = dto.BorrowedBookId,
+                BorrowedBookId = null, // Не используем BorrowedBookId для резерваций
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -45,6 +52,9 @@ namespace LibraryAPI.Services
 
             // Отправка push уведомления
             await SendPushNotificationAsync(dto.UserId, dto.Title, dto.Message, dto.Type);
+
+            // Отправка email уведомления с сохранением результата
+            await SendEmailNotificationWithSaveAsync(notification.Id, dto.UserId, dto.Title, dto.Type, dto.TemplateData);
 
             _logger.LogInformation($"Создано уведомление {notification.Id} для пользователя {dto.UserId}");
             return notification;
@@ -76,6 +86,9 @@ namespace LibraryAPI.Services
             // Отправка push уведомлений всем пользователям
             await SendPushNotificationToMultipleUsersAsync(dto.UserIds, dto.Title, dto.Message, dto.Type);
 
+            // Отправка email уведомлений всем пользователям с сохранением результата
+            await SendBulkEmailNotificationWithSaveAsync(notifications, dto.Title, dto.Message, dto.Type);
+
             _logger.LogInformation($"Создано {notifications.Count} массовых уведомлений");
             return notifications;
         }
@@ -102,7 +115,7 @@ namespace LibraryAPI.Services
                 Type = NotificationType.BookDueSoon,
                 Priority = NotificationPriority.High,
                 BookId = dto.BookId,
-                BorrowedBookId = dto.BorrowedBookId,
+                BorrowedBookId = null, // Не используем BorrowedBookId для резерваций
                 AdditionalData = additionalData
             };
 
@@ -112,28 +125,26 @@ namespace LibraryAPI.Services
         public async Task SendOverdueNotificationAsync(OverdueNotificationDto dto)
         {
             var title = "Просроченная книга";
-            var message = $"Книга \"{dto.BookTitle}\" просрочена на {dto.DaysOverdue} дн. " +
-                         $"Предполагаемый штраф: {dto.EstimatedFine:C}";
-
-            var additionalData = JsonSerializer.Serialize(new
+            
+            var templateData = new Dictionary<string, object>
             {
-                BookId = dto.BookId,
-                BorrowedBookId = dto.BorrowedBookId,
-                DueDate = dto.DueDate,
-                DaysOverdue = dto.DaysOverdue,
-                EstimatedFine = dto.EstimatedFine
-            });
+                { "BookTitle", dto.BookTitle },
+                { "ReturnDate", dto.DueDate.ToString("dd.MM.yyyy") },
+                { "DaysOverdue", dto.DaysOverdue.ToString() },
+                { "EstimatedFine", dto.EstimatedFine.ToString("C") }
+            };
 
             var notificationDto = new NotificationCreateDto
             {
                 UserId = dto.UserId,
                 Title = title,
-                Message = message,
+                Message = $"Книга \"{dto.BookTitle}\" просрочена. Срок возврата: {dto.DueDate:dd.MM.yyyy}", // Краткое сообщение для push
                 Type = NotificationType.BookOverdue,
                 Priority = NotificationPriority.Critical,
                 BookId = dto.BookId,
-                BorrowedBookId = dto.BorrowedBookId,
-                AdditionalData = additionalData
+                BorrowedBookId = null,
+                AdditionalData = JsonSerializer.Serialize(templateData), // Сохраняем для истории
+                TemplateData = templateData
             };
 
             await CreateNotificationAsync(notificationDto);
@@ -165,6 +176,7 @@ namespace LibraryAPI.Services
                 Message = message,
                 Type = NotificationType.FineAdded,
                 Priority = NotificationPriority.High,
+                BorrowedBookId = null, // Не используем BorrowedBookId для резерваций
                 AdditionalData = additionalData
             };
 
@@ -183,7 +195,8 @@ namespace LibraryAPI.Services
                 Message = message,
                 Type = NotificationType.BookReturned,
                 Priority = NotificationPriority.Normal,
-                BookId = bookId
+                BookId = bookId,
+                BorrowedBookId = null // Не используем BorrowedBookId для резерваций
             };
 
             await CreateNotificationAsync(notificationDto);
@@ -194,56 +207,59 @@ namespace LibraryAPI.Services
             var tomorrow = DateTime.UtcNow.AddDays(1).Date;
             var in3Days = DateTime.UtcNow.AddDays(3).Date;
 
-            var booksToRemind = await _context.BorrowedBooks
-                .Include(bb => bb.Book)
-                .Include(bb => bb.User)
-                .Where(bb => bb.ReturnDate == null && 
-                            bb.DueDate.Date >= tomorrow && 
-                            bb.DueDate.Date <= in3Days)
+            var reservationsToRemind = await _context.Reservations
+                .Include(r => r.Book)
+                .Include(r => r.User)
+                .Where(r => r.Status == ReservationStatus.Выдана && 
+                           r.ActualReturnDate == null && 
+                           r.ExpirationDate.Date >= tomorrow && 
+                           r.ExpirationDate.Date <= in3Days)
                 .ToListAsync();
 
-            foreach (var borrowedBook in booksToRemind)
+            foreach (var reservation in reservationsToRemind)
             {
-                var daysUntilDue = (borrowedBook.DueDate.Date - DateTime.UtcNow.Date).Days;
+                var daysUntilDue = (reservation.ExpirationDate.Date - DateTime.UtcNow.Date).Days;
                 
                 var dto = new BookDueNotificationDto
                 {
-                    UserId = borrowedBook.UserId,
-                    BookId = borrowedBook.BookId,
-                    BorrowedBookId = borrowedBook.Id,
-                    BookTitle = borrowedBook.Book.Title,
-                    BookAuthors = borrowedBook.Book.Authors,
-                    DueDate = borrowedBook.DueDate,
+                    UserId = reservation.UserId,
+                    BookId = reservation.BookId,
+                    BorrowedBookId = null, // Не используем BorrowedBookId для резерваций
+                    BookTitle = reservation.Book.Title,
+                    BookAuthors = reservation.Book.Authors,
+                    DueDate = reservation.ExpirationDate,
                     DaysUntilDue = daysUntilDue
                 };
 
                 await SendBookDueReminderAsync(dto);
             }
 
-            _logger.LogInformation($"Отправлено {booksToRemind.Count} напоминаний о возврате книг");
+            _logger.LogInformation($"Отправлено {reservationsToRemind.Count} напоминаний о возврате книг");
         }
 
         public async Task SendOverdueNotificationsToUsersWithBooksAsync()
         {
-            var overdueBooks = await _context.BorrowedBooks
-                .Include(bb => bb.Book)
-                .Include(bb => bb.User)
-                .Where(bb => bb.ReturnDate == null && bb.DueDate < DateTime.UtcNow)
+            var overdueReservations = await _context.Reservations
+                .Include(r => r.Book)
+                .Include(r => r.User)
+                .Where(r => (r.Status == ReservationStatus.Просрочена || 
+                           (r.Status == ReservationStatus.Выдана && r.ExpirationDate < DateTime.UtcNow)) &&
+                           r.ActualReturnDate == null)
                 .ToListAsync();
 
-            foreach (var borrowedBook in overdueBooks)
+            foreach (var reservation in overdueReservations)
             {
-                var daysOverdue = (DateTime.UtcNow - borrowedBook.DueDate).Days;
+                var daysOverdue = (DateTime.UtcNow - reservation.ExpirationDate).Days;
                 var estimatedFine = daysOverdue * 10m; // 10 рублей за день
 
                 var dto = new OverdueNotificationDto
                 {
-                    UserId = borrowedBook.UserId,
-                    BookId = borrowedBook.BookId,
-                    BorrowedBookId = borrowedBook.Id,
-                    BookTitle = borrowedBook.Book.Title,
-                    BookAuthors = borrowedBook.Book.Authors,
-                    DueDate = borrowedBook.DueDate,
+                    UserId = reservation.UserId,
+                    BookId = reservation.BookId,
+                    BorrowedBookId = null, // Не используем BorrowedBookId для резерваций
+                    BookTitle = reservation.Book.Title,
+                    BookAuthors = reservation.Book.Authors,
+                    DueDate = reservation.ExpirationDate,
                     DaysOverdue = daysOverdue,
                     EstimatedFine = estimatedFine
                 };
@@ -251,28 +267,34 @@ namespace LibraryAPI.Services
                 await SendOverdueNotificationAsync(dto);
             }
 
-            _logger.LogInformation($"Отправлено {overdueBooks.Count} уведомлений о просроченных книгах");
+            _logger.LogInformation($"Отправлено {overdueReservations.Count} уведомлений о просроченных книгах");
         }
 
         public async Task SendFineNotificationsToUsersWithFinesAsync()
         {
             var usersWithFines = await _context.Users
                 .Where(u => u.FineAmount > 0)
-                .Include(u => u.BorrowedBooks)
-                .ThenInclude(bb => bb.Book)
                 .ToListAsync();
 
             foreach (var user in usersWithFines)
             {
-                var overdueBooks = user.BorrowedBooks
-                    .Where(bb => bb.ReturnDate == null && bb.DueDate < DateTime.UtcNow)
-                    .Select(bb => new OverdueBookDto
+                // Получаем просроченные резервации для данного пользователя
+                var overdueReservations = await _context.Reservations
+                    .Include(r => r.Book)
+                    .Where(r => r.UserId == user.Id && 
+                               (r.Status == ReservationStatus.Просрочена || 
+                               (r.Status == ReservationStatus.Выдана && r.ExpirationDate < DateTime.UtcNow)) &&
+                               r.ActualReturnDate == null)
+                    .ToListAsync();
+
+                var overdueBooks = overdueReservations
+                    .Select(r => new OverdueBookDto
                     {
-                        BookId = bb.BookId,
-                        BookTitle = bb.Book.Title,
-                        BookAuthors = bb.Book.Authors,
-                        DueDate = bb.DueDate,
-                        DaysOverdue = (DateTime.UtcNow - bb.DueDate).Days
+                        BookId = r.BookId,
+                        BookTitle = r.Book.Title,
+                        BookAuthors = r.Book.Authors,
+                        DueDate = r.ExpirationDate,
+                        DaysOverdue = (DateTime.UtcNow - r.ExpirationDate).Days
                     })
                     .ToList();
 
@@ -391,6 +413,11 @@ namespace LibraryAPI.Services
                     AdditionalData = n.AdditionalData,
                     BookId = n.BookId,
                     BorrowedBookId = n.BorrowedBookId,
+                    IsEmailSent = n.IsEmailSent,
+                    EmailSentAt = n.EmailSentAt,
+                    EmailRecipient = n.EmailRecipient,
+                    EmailDeliverySuccessful = n.EmailDeliverySuccessful,
+                    EmailErrorMessage = n.EmailErrorMessage,
                     BookTitle = n.Book != null ? n.Book.Title : null,
                     BookAuthors = n.Book != null ? n.Book.Authors : null,
                     BookCover = n.Book != null ? n.Book.Cover : null
@@ -412,6 +439,9 @@ namespace LibraryAPI.Services
                 UnreadNotifications = notifications.Count(n => !n.IsRead),
                 DeliveredNotifications = notifications.Count(n => n.IsDelivered),
                 PendingNotifications = notifications.Count(n => !n.IsDelivered),
+                EmailsSent = notifications.Count(n => n.IsEmailSent),
+                EmailsDelivered = notifications.Count(n => n.IsEmailSent && n.EmailDeliverySuccessful),
+                EmailsFailed = notifications.Count(n => n.IsEmailSent && !n.EmailDeliverySuccessful),
                 NotificationsByType = notifications
                     .GroupBy(n => n.Type.ToString())
                     .ToDictionary(g => g.Key, g => g.Count()),
@@ -472,6 +502,11 @@ namespace LibraryAPI.Services
                     AdditionalData = n.AdditionalData,
                     BookId = n.BookId,
                     BorrowedBookId = n.BorrowedBookId,
+                    IsEmailSent = n.IsEmailSent,
+                    EmailSentAt = n.EmailSentAt,
+                    EmailRecipient = n.EmailRecipient,
+                    EmailDeliverySuccessful = n.EmailDeliverySuccessful,
+                    EmailErrorMessage = n.EmailErrorMessage,
                     BookTitle = n.Book != null ? n.Book.Title : null,
                     BookAuthors = n.Book != null ? n.Book.Authors : null,
                     BookCover = n.Book != null ? n.Book.Cover : null
@@ -527,6 +562,9 @@ namespace LibraryAPI.Services
                 TotalUsers = totalUsers,
                 UsersWithNotifications = usersWithNotifications,
                 UsersWithUnreadNotifications = usersWithUnreadNotifications,
+                EmailsSent = allNotifications.Count(n => n.IsEmailSent),
+                EmailsDelivered = allNotifications.Count(n => n.IsEmailSent && n.EmailDeliverySuccessful),
+                EmailsFailed = allNotifications.Count(n => n.IsEmailSent && !n.EmailDeliverySuccessful),
                 NotificationsByType = allNotifications
                     .GroupBy(n => n.Type.ToString())
                     .ToDictionary(g => g.Key, g => g.Count()),
@@ -746,6 +784,351 @@ namespace LibraryAPI.Services
             await _context.SaveChangesAsync();
 
             _logger.LogInformation($"Удалено {oldNotifications.Count} старых уведомлений");
+        }
+
+        public async Task<bool> SendEmailNotificationAsync(Guid userId, string title, NotificationType type, Dictionary<string, object> templateData)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null || string.IsNullOrEmpty(user.Email) || !user.IsActive)
+            {
+                return false;
+            }
+
+            var templateName = GetTemplateNameForType(type);
+            templateData["UserName"] = user.FullName;
+            templateData["Title"] = title;
+
+            var expandoModel = new ExpandoObject();
+            var modelAsDictionary = (IDictionary<string, object>)expandoModel;
+            foreach (var kvp in templateData)
+            {
+                modelAsDictionary[kvp.Key] = kvp.Value;
+            }
+
+            string htmlBody = await _templateRenderer.RenderAsync(templateName, expandoModel);
+
+
+            return await _emailService.SendBulkEmailAsync(
+                new List<string> { user.Email },
+                title,
+                htmlBody,
+                true // isHtml
+            );
+        }
+
+        public async Task<bool> SendBulkEmailNotificationAsync(List<Guid> userIds, string title, string message, NotificationType type)
+        {
+            try
+            {
+                var users = await _context.Users
+                    .Where(u => userIds.Contains(u.Id) && !string.IsNullOrEmpty(u.Email))
+                    .ToListAsync();
+
+                if (!users.Any())
+                {
+                    _logger.LogWarning("Не найдено пользователей с валидными email адресами для массовой отправки");
+                    return false;
+                }
+
+                var emails = users.Select(u => u.Email).ToList();
+                var result = await _emailService.SendBulkNotificationEmailAsync(emails, title, message, type.ToString());
+
+                if (result)
+                {
+                    _logger.LogInformation($"Массовые email уведомления успешно отправлены {users.Count} пользователям");
+                }
+                else
+                {
+                    _logger.LogWarning($"Не удалось отправить массовые email уведомления {users.Count} пользователям");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка отправки массовых email уведомлений");
+                return false;
+            }
+        }
+
+        public async Task SendEmailNotificationWithSaveAsync(Guid notificationId, Guid userId, string title, NotificationType type, Dictionary<string, object> templateData)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            string? recipientEmail = null;
+            bool success = false;
+            string? errorMessage = null;
+
+            if (user != null && !string.IsNullOrEmpty(user.Email) && user.IsActive)
+            {
+                recipientEmail = user.Email;
+                try
+                {
+                    success = await SendEmailNotificationAsync(userId, title, type, templateData);
+                    if (!success)
+                    {
+                        errorMessage = "Не удалось отправить email по неизвестной причине.";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Ошибка при отправке email для уведомления {NotificationId}", notificationId);
+                    errorMessage = ex.Message;
+                }
+            }
+            else
+            {
+                errorMessage = "Пользователь не найден, не имеет email или неактивен.";
+            }
+
+            await UpdateNotificationEmailStatus(notificationId, true, recipientEmail, success, errorMessage);
+        }
+
+        public async Task SendBulkEmailNotificationWithSaveAsync(List<Notification> notifications, string title, string message, NotificationType type)
+        {
+            try
+            {
+                var userIds = notifications.Select(n => n.UserId).ToList();
+                var users = await _context.Users
+                    .Where(u => userIds.Contains(u.Id) && !string.IsNullOrEmpty(u.Email))
+                    .ToListAsync();
+
+                if (!users.Any())
+                {
+                    // Обновляем все уведомления как неуспешные
+                    foreach (var notification in notifications)
+                    {
+                        await UpdateNotificationEmailStatus(notification.Id, false, null, false, "Нет пользователей с валидными email адресами");
+                    }
+                    return;
+                }
+
+                var emails = users.Select(u => u.Email).ToList();
+                var result = await _emailService.SendBulkNotificationEmailAsync(emails, title, message, type.ToString());
+
+                // Обновляем статус для каждого уведомления
+                foreach (var notification in notifications)
+                {
+                    var user = users.FirstOrDefault(u => u.Id == notification.UserId);
+                    if (user != null)
+                    {
+                        await UpdateNotificationEmailStatus(notification.Id, true, user.Email, result, 
+                            result ? null : "Ошибка массовой отправки email");
+                    }
+                    else
+                    {
+                        await UpdateNotificationEmailStatus(notification.Id, false, null, false, "Пользователь не найден или у него нет email");
+                    }
+                }
+
+                if (result)
+                {
+                    _logger.LogInformation($"Массовые email уведомления успешно отправлены и сохранены для {users.Count} пользователей");
+                }
+                else
+                {
+                    _logger.LogWarning($"Не удалось отправить массовые email уведомления {users.Count} пользователям");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Обновляем все уведомления как неуспешные
+                foreach (var notification in notifications)
+                {
+                    await UpdateNotificationEmailStatus(notification.Id, true, null, false, ex.Message);
+                }
+                _logger.LogError(ex, "Ошибка отправки массовых email уведомлений");
+            }
+        }
+
+        // Индивидуальные автоматические уведомления для конкретного пользователя
+        public async Task<bool> SendDueReminderToUserAsync(Guid userId)
+        {
+            try
+            {
+                var tomorrow = DateTime.UtcNow.AddDays(1).Date;
+                var in3Days = DateTime.UtcNow.AddDays(3).Date;
+
+                var reservationsToRemind = await _context.Reservations
+                    .Include(r => r.Book)
+                    .Include(r => r.User)
+                    .Where(r => r.UserId == userId &&
+                               r.Status == ReservationStatus.Выдана &&
+                               r.ActualReturnDate == null && 
+                               r.ExpirationDate.Date >= tomorrow && 
+                               r.ExpirationDate.Date <= in3Days)
+                    .ToListAsync();
+
+                if (!reservationsToRemind.Any())
+                {
+                    _logger.LogInformation($"У пользователя {userId} нет книг для напоминания о возврате");
+                    return false;
+                }
+
+                foreach (var reservation in reservationsToRemind)
+                {
+                    var daysUntilDue = (reservation.ExpirationDate.Date - DateTime.UtcNow.Date).Days;
+                    
+                    var dto = new BookDueNotificationDto
+                    {
+                        UserId = reservation.UserId,
+                        BookId = reservation.BookId,
+                        BorrowedBookId = null, // Не используем BorrowedBookId для резерваций
+                        BookTitle = reservation.Book.Title,
+                        BookAuthors = reservation.Book.Authors,
+                        DueDate = reservation.ExpirationDate,
+                        DaysUntilDue = daysUntilDue
+                    };
+
+                    await SendBookDueReminderAsync(dto);
+                }
+
+                _logger.LogInformation($"Отправлено {reservationsToRemind.Count} напоминаний о возврате книг пользователю {userId}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка отправки напоминания о возврате книг пользователю {userId}");
+                return false;
+            }
+        }
+
+        public async Task<bool> SendOverdueNotificationToUserAsync(Guid userId)
+        {
+            try
+            {
+                var overdueReservations = await _context.Reservations
+                    .Include(r => r.Book)
+                    .Include(r => r.User)
+                    .Where(r => r.UserId == userId &&
+                               (r.Status == ReservationStatus.Просрочена || 
+                               (r.Status == ReservationStatus.Выдана && r.ExpirationDate < DateTime.UtcNow)) &&
+                               r.ActualReturnDate == null)
+                    .ToListAsync();
+
+                if (!overdueReservations.Any())
+                {
+                    _logger.LogInformation($"У пользователя {userId} нет просроченных книг");
+                    return false;
+                }
+
+                foreach (var reservation in overdueReservations)
+                {
+                    var daysOverdue = (DateTime.UtcNow - reservation.ExpirationDate).Days;
+                    var estimatedFine = daysOverdue * 10m; // 10 рублей за день
+
+                    var dto = new OverdueNotificationDto
+                    {
+                        UserId = reservation.UserId,
+                        BookId = reservation.BookId,
+                        BorrowedBookId = null, // Не используем BorrowedBookId для резерваций
+                        BookTitle = reservation.Book.Title,
+                        BookAuthors = reservation.Book.Authors,
+                        DueDate = reservation.ExpirationDate,
+                        DaysOverdue = daysOverdue,
+                        EstimatedFine = estimatedFine
+                    };
+
+                    await SendOverdueNotificationAsync(dto);
+                }
+
+                _logger.LogInformation($"Отправлено {overdueReservations.Count} уведомлений о просроченных книгах пользователю {userId}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка отправки уведомления о просроченных книгах пользователю {userId}");
+                return false;
+            }
+        }
+
+        public async Task<bool> SendFineNotificationToUserAsync(Guid userId)
+        {
+            try
+            {
+                var user = await _context.Users
+                    .Where(u => u.Id == userId && u.FineAmount > 0)
+                    .FirstOrDefaultAsync();
+
+                if (user == null)
+                {
+                    _logger.LogInformation($"Пользователь {userId} не найден или у него нет неоплаченных штрафов");
+                    return false;
+                }
+
+                // Получаем просроченные резервации для данного пользователя
+                var overdueReservations = await _context.Reservations
+                    .Include(r => r.Book)
+                    .Where(r => r.UserId == userId && 
+                               (r.Status == ReservationStatus.Просрочена || 
+                               (r.Status == ReservationStatus.Выдана && r.ExpirationDate < DateTime.UtcNow)) &&
+                               r.ActualReturnDate == null)
+                    .ToListAsync();
+
+                var overdueBooks = overdueReservations
+                    .Select(r => new OverdueBookDto
+                    {
+                        BookId = r.BookId,
+                        BookTitle = r.Book.Title,
+                        BookAuthors = r.Book.Authors,
+                        DueDate = r.ExpirationDate,
+                        DaysOverdue = (DateTime.UtcNow - r.ExpirationDate).Days
+                    })
+                    .ToList();
+
+                var dto = new FineNotificationDto
+                {
+                    UserId = user.Id,
+                    FineAmount = user.FineAmount,
+                    PreviousFineAmount = 0, // Можно добавить логику для отслеживания предыдущих штрафов
+                    Reason = "Просроченные книги",
+                    OverdueBooks = overdueBooks
+                };
+
+                await SendFineNotificationAsync(dto);
+
+                _logger.LogInformation($"Отправлено уведомление о штрафе пользователю {userId} на сумму {user.FineAmount:C}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка отправки уведомления о штрафе пользователю {userId}");
+                return false;
+            }
+        }
+
+        private async Task UpdateNotificationEmailStatus(Guid notificationId, bool isEmailSent, string? emailRecipient, bool deliverySuccessful, string? errorMessage)
+        {
+            try
+            {
+                var notification = await _context.Notifications.FindAsync(notificationId);
+                if (notification != null)
+                {
+                    notification.IsEmailSent = isEmailSent;
+                    notification.EmailSentAt = isEmailSent ? DateTime.UtcNow : null;
+                    notification.EmailRecipient = emailRecipient;
+                    notification.EmailDeliverySuccessful = deliverySuccessful;
+                    notification.EmailErrorMessage = errorMessage;
+
+                    await _context.SaveChangesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка обновления статуса email для уведомления {notificationId}");
+            }
+        }
+
+        private string GetTemplateNameForType(NotificationType type)
+        {
+            return type switch
+            {
+                NotificationType.BookOverdue => "Templates/OverdueEmail.html",
+                NotificationType.FineAdded => "Templates/FineEmail.html",
+                NotificationType.BookDueSoon => "Templates/ReturnSoonEmail.html",
+                NotificationType.BookReturned => "Templates/BookReturnedEmail.html",
+                NotificationType.BookReserved => "Templates/ReservationEmail.html",
+                _ => "Templates/GeneralEmail.html",
+            };
         }
     }
 } 

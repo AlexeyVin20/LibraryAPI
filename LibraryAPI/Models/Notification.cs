@@ -34,6 +34,17 @@ namespace LibraryAPI.Models
         
         public DateTime? DeliveredAt { get; set; }
         
+        // Email уведомления
+        public bool IsEmailSent { get; set; } = false;
+        
+        public DateTime? EmailSentAt { get; set; }
+        
+        public string? EmailRecipient { get; set; }
+        
+        public bool EmailDeliverySuccessful { get; set; } = false;
+        
+        public string? EmailErrorMessage { get; set; }
+        
         // Дополнительные данные в JSON формате
         public string? AdditionalData { get; set; }
         

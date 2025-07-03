@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Swashbuckle.AspNetCore.Annotations;
+using LibraryAPI.Data;
+using Microsoft.EntityFrameworkCore;
+using System.Dynamic;
 
 namespace LibraryAPI.Controllers
 {
@@ -15,15 +18,24 @@ namespace LibraryAPI.Controllers
         private readonly INotificationService _notificationService;
         private readonly IAuthService _authService;
         private readonly ILogger<NotificationController> _logger;
+        private readonly LibraryDbContext _context;
+        private readonly ITemplateRenderer _templateRenderer;
+        private readonly IEmailService _emailService;
 
         public NotificationController(
             INotificationService notificationService,
             IAuthService authService,
-            ILogger<NotificationController> logger)
+            ILogger<NotificationController> logger,
+            LibraryDbContext context,
+            ITemplateRenderer templateRenderer,
+            IEmailService emailService)
         {
             _notificationService = notificationService;
             _authService = authService;
             _logger = logger;
+            _context = context;
+            _templateRenderer = templateRenderer;
+            _emailService = emailService;
         }
 
         /// <summary>
@@ -519,6 +531,350 @@ namespace LibraryAPI.Controllers
                 _logger.LogError(ex, "Ошибка отправки тестового push уведомления");
                 return Unauthorized(new { message = ex.Message });
             }
+        }
+
+        /// <summary>
+        /// Отправка тестового email уведомления (только для Администратор)
+        /// </summary>
+        /// <param name="userId">ID пользователя для отправки тестового email</param>
+        /// <param name="dto">Данные тестового сообщения</param>
+        /// <returns>Результат операции</returns>
+        /// <response code="200">Тестовое email уведомление успешно отправлено</response>
+        /// <response code="401">Пользователь не авторизован</response>
+        /// <response code="403">Недостаточно прав доступа</response>
+        [HttpPost("test-email/{userId}")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [SwaggerOperation(
+            Summary = "Отправка тестового email уведомления",
+            Description = "Требуется JWT Bearer токен в заголовке Authorization и роль Администратор или Библиотекарь. Отправляет тестовое email уведомление указанному пользователю."
+        )]
+        public async Task<IActionResult> TestEmailNotification(Guid userId, [FromBody] TestEmailDto dto)
+        {
+            try
+            {
+                var currentUser = await _authService.GetUserFromToken(User);
+                var templateData = new Dictionary<string, object>
+                {
+                    { "Message", dto.Message }
+                };
+                var result = await _notificationService.SendEmailNotificationAsync(userId, dto.Title, Models.NotificationType.GeneralInfo, templateData);
+                
+                if (result)
+                {
+                    return Ok(new { message = "Тестовое email уведомление отправлено" });
+                }
+                else
+                {
+                    return BadRequest(new { message = "Не удалось отправить тестовое email уведомление" });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка отправки тестового email уведомления");
+                return Unauthorized(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Отправка массовых email уведомлений (только для Администратор/Библиотекарь)
+        /// </summary>
+        /// <param name="dto">Данные для массовой отправки email уведомлений</param>
+        /// <returns>Результат операции</returns>
+        /// <response code="200">Массовые email уведомления успешно отправлены</response>
+        /// <response code="401">Пользователь не авторизован</response>
+        /// <response code="403">Недостаточно прав доступа</response>
+        [HttpPost("send-bulk-email")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [SwaggerOperation(
+            Summary = "Отправка массовых email уведомлений",
+            Description = "Требуется JWT Bearer токен в заголовке Authorization и роль Администратор или Библиотекарь. Отправляет email уведомления нескольким пользователям."
+        )]
+        public async Task<IActionResult> SendBulkEmailNotification([FromBody] NotificationPushDto dto)
+        {
+            try
+            {
+                var user = await _authService.GetUserFromToken(User);
+                var result = await _notificationService.SendBulkEmailNotificationAsync(dto.UserIds, dto.Title, dto.Message, dto.Type);
+                
+                if (result)
+                {
+                    return Ok(new { message = "Массовые email уведомления отправлены" });
+                }
+                else
+                {
+                    return BadRequest(new { message = "Не удалось отправить массовые email уведомления" });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка отправки массовых email уведомлений");
+                return Unauthorized(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Получение статистики email уведомлений (только для Администратор/Библиотекарь)
+        /// </summary>
+        /// <returns>Статистика email уведомлений</returns>
+        /// <response code="200">Статистика email успешно получена</response>
+        /// <response code="401">Пользователь не авторизован</response>
+        /// <response code="403">Недостаточно прав доступа</response>
+        [HttpGet("email-stats")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [SwaggerOperation(
+            Summary = "Получение статистики email уведомлений",
+            Description = "Требуется JWT Bearer токен в заголовке Authorization и роль Администратор или Библиотекарь. Возвращает детальную статистику по email уведомлениям."
+        )]
+        public async Task<IActionResult> GetEmailStats()
+        {
+            try
+            {
+                var user = await _authService.GetUserFromToken(User);
+                var stats = await _notificationService.GetAllNotificationStatsAsync();
+                
+                return Ok(new
+                {
+                    EmailsSent = stats.EmailsSent,
+                    EmailsDelivered = stats.EmailsDelivered,
+                    EmailsFailed = stats.EmailsFailed,
+                    EmailSuccessRate = stats.EmailsSent > 0 ? (double)stats.EmailsDelivered / stats.EmailsSent * 100 : 0,
+                    TotalNotifications = stats.TotalNotifications
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка получения статистики email уведомлений");
+                return Unauthorized(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Отправка напоминания о скором возврате книг конкретному пользователю
+        /// </summary>
+        /// <param name="userId">ID пользователя для отправки напоминания</param>
+        /// <returns>Результат операции</returns>
+        /// <response code="200">Напоминание успешно отправлено</response>
+        /// <response code="401">Пользователь не авторизован</response>
+        /// <response code="404">Пользователь не найден или нет книг для напоминания</response>
+        [HttpPost("send-due-reminder/{userId}")]
+        [Authorize]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [SwaggerOperation(
+            Summary = "Отправка напоминания о скором возврате книг конкретному пользователю",
+            Description = "Требуется JWT Bearer токен в заголовке Authorization. Отправляет напоминание конкретному пользователю о необходимости вернуть книги."
+        )]
+        public async Task<IActionResult> SendDueReminderToUser(Guid userId)
+        {
+            try
+            {
+                var currentUser = await _authService.GetUserFromToken(User);
+                var result = await _notificationService.SendDueReminderToUserAsync(userId);
+                
+                if (!result)
+                    return NotFound(new { message = "Пользователь не найден или нет книг для напоминания" });
+
+                return Ok(new { message = "Напоминание о возврате книг отправлено пользователю" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка отправки напоминания о возврате книг пользователю {UserId}", userId);
+                return Unauthorized(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Отправка уведомления о просроченных книгах конкретному пользователю
+        /// </summary>
+        /// <param name="userId">ID пользователя для отправки уведомления</param>
+        /// <returns>Результат операции</returns>
+        /// <response code="200">Уведомление о просроченных книгах успешно отправлено</response>
+        /// <response code="401">Пользователь не авторизован</response>
+        /// <response code="404">Пользователь не найден или нет просроченных книг</response>
+        [HttpPost("send-overdue-notification/{userId}")]
+        [Authorize]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [SwaggerOperation(
+            Summary = "Отправка уведомления о просроченных книгах конкретному пользователю",
+            Description = "Требуется JWT Bearer токен в заголовке Authorization. Отправляет уведомление конкретному пользователю о просроченных книгах."
+        )]
+        public async Task<IActionResult> SendOverdueNotificationToUser(Guid userId)
+        {
+            try
+            {
+                var currentUser = await _authService.GetUserFromToken(User);
+                var result = await _notificationService.SendOverdueNotificationToUserAsync(userId);
+                
+                if (!result)
+                    return NotFound(new { message = "Пользователь не найден или нет просроченных книг" });
+
+                return Ok(new { message = "Уведомление о просроченных книгах отправлено пользователю" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка отправки уведомления о просроченных книгах пользователю {UserId}", userId);
+                return Unauthorized(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Отправка уведомления о штрафах конкретному пользователю
+        /// </summary>
+        /// <param name="userId">ID пользователя для отправки уведомления</param>
+        /// <returns>Результат операции</returns>
+        /// <response code="200">Уведомление о штрафах успешно отправлено</response>
+        /// <response code="401">Пользователь не авторизован</response>
+        /// <response code="404">Пользователь не найден или нет неоплаченных штрафов</response>
+        [HttpPost("send-fine-notification/{userId}")]
+        [Authorize]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [SwaggerOperation(
+            Summary = "Отправка уведомления о штрафах конкретному пользователю",
+            Description = "Требуется JWT Bearer токен в заголовке Authorization. Отправляет уведомление конкретному пользователю о неоплаченных штрафах."
+        )]
+        public async Task<IActionResult> SendFineNotificationToUser(Guid userId)
+        {
+            try
+            {
+                var currentUser = await _authService.GetUserFromToken(User);
+                var result = await _notificationService.SendFineNotificationToUserAsync(userId);
+                
+                if (!result)
+                    return NotFound(new { message = "Пользователь не найден или нет неоплаченных штрафов" });
+
+                return Ok(new { message = "Уведомление о штрафах отправлено пользователю" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка отправки уведомления о штрафах пользователю {UserId}", userId);
+                return Unauthorized(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Отправка кастомизированного email уведомления
+        /// </summary>
+        /// <param name="request">Данные для отправки</param>
+        /// <returns>Результат операции</returns>
+        /// <response code="200">Email успешно отправлен</response>
+        /// <response code="400">Пользователь не найден или некорректные данные</response>
+        /// <response code="401">Пользователь не авторизован</response>
+        /// <response code="500">Ошибка при отправке email</response>
+        [HttpPost("send-custom-email")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [SwaggerOperation(
+            Summary = "Отправка кастомизированного email уведомления",
+            Description = "Требуется JWT Bearer токен и роль Администратор или Библиотекарь. Отправляет email с использованием HTML-шаблона."
+        )]
+        public async Task<IActionResult> SendCustomEmail([FromBody] SendEmailRequestDto request)
+        {
+            try
+            {
+                // -- START DEBUG LOGGING --
+                _logger.LogInformation("--- Получен запрос на кастомный email ---");
+                _logger.LogInformation("UserID: {UserId}, Type: {Type}, Title: {Title}", request.UserId, request.Type, request.Title);
+                _logger.LogInformation("Данные для шаблона (TemplateData):");
+                if (request.TemplateData.Count == 0)
+                {
+                    _logger.LogInformation("  -> TemplateData пуст.");
+                }
+                else
+                {
+                    foreach (var kvp in request.TemplateData)
+                    {
+                        _logger.LogInformation("  -> Ключ: '{Key}', Значение: '{Value}'", kvp.Key, kvp.Value);
+                    }
+                }
+                _logger.LogInformation("--- Конец лога запроса ---");
+                // -- END DEBUG LOGGING --
+
+                // 1. Найти пользователя
+                var user = await _context.Users.FindAsync(request.UserId);
+                if (user == null || string.IsNullOrEmpty(user.Email))
+                {
+                    return BadRequest(new { message = "Пользователь не найден или у него нет email." });
+                }
+
+                // 2. Определить, какой HTML-шаблон использовать
+                string templateName = GetTemplateNameForType(request.Type);
+
+                // 3. Создать модель с данными для шаблона
+                var templateModel = new Dictionary<string, object>(request.TemplateData);
+                templateModel["UserName"] = user.FullName;
+                templateModel["Title"] = request.Title;
+
+                // Преобразуем словарь в ExpandoObject
+                var expandoModel = new ExpandoObject();
+                var modelAsDictionary = (IDictionary<string, object>)expandoModel;
+                foreach (var kvp in templateModel)
+                {
+                    modelAsDictionary[kvp.Key] = kvp.Value;
+                }
+
+                // 4. Сгенерировать HTML из шаблона и данных
+                string htmlBody = await _templateRenderer.RenderAsync(templateName, expandoModel);
+
+                // 5. Отправить email
+                var emailSent = await _emailService.SendBulkEmailAsync(
+                    new List<string> { user.Email },
+                    request.Title,
+                    htmlBody,
+                    true // isHtml
+                );
+                
+                if (emailSent)
+                {
+                    _logger.LogInformation($"Кастомный Email успешно отправлен пользователю {user.Email}.");
+                    return Ok(new { message = "Email успешно отправлен." });
+                }
+                else
+                {
+                    _logger.LogError($"Ошибка при отправке кастомного email пользователю {user.Email}.");
+                    return StatusCode(500, new { message = "Ошибка при отправке email." });
+                }
+            }
+            catch (FileNotFoundException ex)
+            {
+                _logger.LogError(ex, "Ошибка: шаблон email не найден.");
+                return StatusCode(500, new { message = "Ошибка на сервере: шаблон не найден." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Непредвиденная ошибка при отправке кастомного email.");
+                return StatusCode(500, new { message = "Внутренняя ошибка сервера." });
+            }
+        }
+        
+        // Вспомогательные методы
+        private string GetTemplateNameForType(string type)
+        {
+            return type switch
+            {
+                "BookOverdue" => "Templates/OverdueEmail.html",
+                "FineAdded" => "Templates/FineEmail.html",
+                "ReturnSoon" => "Templates/ReturnSoonEmail.html",
+                "BookReturned" => "Templates/BookReturnedEmail.html",
+                "ReservationReady" => "Templates/ReservationEmail.html",
+                _ => "Templates/GeneralEmail.html",
+            };
         }
 
         [HttpGet("auth-test")]

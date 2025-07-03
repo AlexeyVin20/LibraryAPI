@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using LibraryAPI.Models;
 
@@ -20,6 +21,13 @@ namespace LibraryAPI.Models.DTOs
         public string? AdditionalData { get; set; }
         public Guid? BookId { get; set; }
         public Guid? BorrowedBookId { get; set; }
+        
+        // Email уведомления
+        public bool IsEmailSent { get; set; }
+        public DateTime? EmailSentAt { get; set; }
+        public string? EmailRecipient { get; set; }
+        public bool EmailDeliverySuccessful { get; set; }
+        public string? EmailErrorMessage { get; set; }
         
         // Дополнительная информация о связанных объектах
         public string? BookTitle { get; set; }
@@ -50,6 +58,8 @@ namespace LibraryAPI.Models.DTOs
         public Guid? BookId { get; set; }
         
         public Guid? BorrowedBookId { get; set; }
+
+        public Dictionary<string, object> TemplateData { get; set; } = new Dictionary<string, object>();
     }
 
     public class NotificationMarkReadDto
@@ -91,6 +101,9 @@ namespace LibraryAPI.Models.DTOs
         public int UnreadNotifications { get; set; }
         public int DeliveredNotifications { get; set; }
         public int PendingNotifications { get; set; }
+        public int EmailsSent { get; set; }
+        public int EmailsDelivered { get; set; }
+        public int EmailsFailed { get; set; }
         public Dictionary<string, int> NotificationsByType { get; set; }
         public Dictionary<string, int> NotificationsByPriority { get; set; }
     }
@@ -104,6 +117,9 @@ namespace LibraryAPI.Models.DTOs
         public int TotalUsers { get; set; }
         public int UsersWithNotifications { get; set; }
         public int UsersWithUnreadNotifications { get; set; }
+        public int EmailsSent { get; set; }
+        public int EmailsDelivered { get; set; }
+        public int EmailsFailed { get; set; }
         public Dictionary<string, int> NotificationsByType { get; set; }
         public Dictionary<string, int> NotificationsByPriority { get; set; }
         public Dictionary<string, int> NotificationsLastDays { get; set; }
@@ -114,7 +130,7 @@ namespace LibraryAPI.Models.DTOs
     {
         public Guid UserId { get; set; }
         public Guid BookId { get; set; }
-        public Guid BorrowedBookId { get; set; }
+        public Guid? BorrowedBookId { get; set; }
         public string BookTitle { get; set; }
         public string BookAuthors { get; set; }
         public DateTime DueDate { get; set; }
@@ -125,7 +141,7 @@ namespace LibraryAPI.Models.DTOs
     {
         public Guid UserId { get; set; }
         public Guid BookId { get; set; }
-        public Guid BorrowedBookId { get; set; }
+        public Guid? BorrowedBookId { get; set; }
         public string BookTitle { get; set; }
         public string BookAuthors { get; set; }
         public DateTime DueDate { get; set; }
@@ -169,6 +185,13 @@ namespace LibraryAPI.Models.DTOs
         public string? AdditionalData { get; set; }
         public Guid? BookId { get; set; }
         public Guid? BorrowedBookId { get; set; }
+        
+        // Email уведомления
+        public bool IsEmailSent { get; set; }
+        public DateTime? EmailSentAt { get; set; }
+        public string? EmailRecipient { get; set; }
+        public bool EmailDeliverySuccessful { get; set; }
+        public string? EmailErrorMessage { get; set; }
         
         // Дополнительная информация о связанных объектах
         public string? BookTitle { get; set; }

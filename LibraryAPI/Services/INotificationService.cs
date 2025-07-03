@@ -1,5 +1,6 @@
 using LibraryAPI.Models;
 using LibraryAPI.Models.DTOs;
+using System.Collections.Generic;
 
 namespace LibraryAPI.Services
 {
@@ -19,6 +20,11 @@ namespace LibraryAPI.Services
         Task SendDueRemindersToUsersWithBooksAsync();
         Task SendOverdueNotificationsToUsersWithBooksAsync();
         Task SendFineNotificationsToUsersWithFinesAsync();
+        
+        // Индивидуальные автоматические уведомления для конкретного пользователя
+        Task<bool> SendDueReminderToUserAsync(Guid userId);
+        Task<bool> SendOverdueNotificationToUserAsync(Guid userId);
+        Task<bool> SendFineNotificationToUserAsync(Guid userId);
         
         // Управление уведомлениями
         Task<bool> MarkAsReadAsync(Guid notificationId, Guid userId);
@@ -46,5 +52,9 @@ namespace LibraryAPI.Services
         
         // Очистка старых уведомлений
         Task CleanupOldNotificationsAsync(int daysOld = 90);
+        
+        // Email уведомления
+        Task<bool> SendEmailNotificationAsync(Guid userId, string title, NotificationType type, Dictionary<string, object> templateData);
+        Task<bool> SendBulkEmailNotificationAsync(List<Guid> userIds, string title, string message, NotificationType type);
     }
 } 

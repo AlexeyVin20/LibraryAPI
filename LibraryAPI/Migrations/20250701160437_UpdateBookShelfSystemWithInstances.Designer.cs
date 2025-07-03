@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using LibraryAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LibraryAPI.Migrations
 {
     [DbContext(typeof(LibraryDbContext))]
-    partial class LibraryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250701160437_UpdateBookShelfSystemWithInstances")]
+    partial class UpdateBookShelfSystemWithInstances
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -181,9 +184,6 @@ namespace LibraryAPI.Migrations
                     b.Property<int?>("PageCount")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("Position")
-                        .HasColumnType("integer");
-
                     b.Property<decimal?>("Price")
                         .HasColumnType("numeric");
 
@@ -193,9 +193,6 @@ namespace LibraryAPI.Migrations
                     b.Property<string>("Publisher")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
-
-                    b.Property<int?>("ShelfId")
-                        .HasColumnType("integer");
 
                     b.Property<string>("Summary")
                         .HasColumnType("text");
@@ -211,8 +208,6 @@ namespace LibraryAPI.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AuthorId");
-
-                    b.HasIndex("ShelfId");
 
                     b.ToTable("Books", (string)null);
                 });
@@ -544,22 +539,7 @@ namespace LibraryAPI.Migrations
                     b.Property<DateTime?>("DeliveredAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<bool>("EmailDeliverySuccessful")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("EmailErrorMessage")
-                        .HasColumnType("text");
-
-                    b.Property<string>("EmailRecipient")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("EmailSentAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<bool>("IsDelivered")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsEmailSent")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsRead")
@@ -712,6 +692,9 @@ namespace LibraryAPI.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<DateTime>("DateCreated")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("DateModified")
                         .HasColumnType("timestamp with time zone");
 
@@ -817,24 +800,18 @@ namespace LibraryAPI.Migrations
                     b.HasOne("LibraryAPI.Models.Author", null)
                         .WithMany("Books")
                         .HasForeignKey("AuthorId");
-
-                    b.HasOne("LibraryAPI.Models.Shelf", "Shelf")
-                        .WithMany("Books")
-                        .HasForeignKey("ShelfId");
-
-                    b.Navigation("Shelf");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.BookInstance", b =>
                 {
                     b.HasOne("LibraryAPI.Models.Book", "Book")
-                        .WithMany()
+                        .WithMany("BookInstances")
                         .HasForeignKey("BookId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("LibraryAPI.Models.Shelf", "Shelf")
-                        .WithMany()
+                        .WithMany("BookInstances")
                         .HasForeignKey("ShelfId")
                         .OnDelete(DeleteBehavior.SetNull);
 
@@ -996,6 +973,11 @@ namespace LibraryAPI.Migrations
                     b.Navigation("Books");
                 });
 
+            modelBuilder.Entity("LibraryAPI.Models.Book", b =>
+                {
+                    b.Navigation("BookInstances");
+                });
+
             modelBuilder.Entity("LibraryAPI.Models.Issue", b =>
                 {
                     b.Navigation("Articles");
@@ -1013,7 +995,7 @@ namespace LibraryAPI.Migrations
 
             modelBuilder.Entity("LibraryAPI.Models.Shelf", b =>
                 {
-                    b.Navigation("Books");
+                    b.Navigation("BookInstances");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.User", b =>

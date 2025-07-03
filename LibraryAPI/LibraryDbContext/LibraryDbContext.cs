@@ -19,6 +19,11 @@ namespace LibraryAPI.Data
         public DbSet<Role> Roles { get; set; }
         public DbSet<UserRole> UserRoles { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+        public DbSet<FavoriteBook> FavoriteBooks { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<BorrowedBook> BorrowedBooks { get; set; }
+        public DbSet<FineRecord> FineRecords { get; set; }
+        public DbSet<BookInstance> BookInstances { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -41,6 +46,132 @@ namespace LibraryAPI.Data
                 .WithMany(r => r.UserRoles)
                 .HasForeignKey(ur => ur.RoleId)
                 .OnDelete(DeleteBehavior.Cascade);
+            
+            // Конфигурация для FavoriteBook
+            modelBuilder.Entity<FavoriteBook>()
+                .HasKey(fb => new { fb.UserId, fb.BookId });
+                
+            modelBuilder.Entity<FavoriteBook>()
+                .HasOne(fb => fb.User)
+                .WithMany(u => u.FavoriteBooks)
+                .HasForeignKey(fb => fb.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            modelBuilder.Entity<FavoriteBook>()
+                .HasOne(fb => fb.Book)
+                .WithMany()
+                .HasForeignKey(fb => fb.BookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            // Конфигурация для Notification
+            modelBuilder.Entity<Notification>()
+                .HasOne(n => n.User)
+                .WithMany()
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            modelBuilder.Entity<Notification>()
+                .HasOne(n => n.Book)
+                .WithMany()
+                .HasForeignKey(n => n.BookId)
+                .OnDelete(DeleteBehavior.SetNull);
+                
+            modelBuilder.Entity<Notification>()
+                .HasOne(n => n.BorrowedBook)
+                .WithMany()
+                .HasForeignKey(n => n.BorrowedBookId)
+                .OnDelete(DeleteBehavior.SetNull);
+                
+            modelBuilder.Entity<Notification>()
+                .HasIndex(n => new { n.UserId, n.CreatedAt })
+                .HasDatabaseName("IX_Notifications_UserId_CreatedAt");
+                
+            modelBuilder.Entity<Notification>()
+                .HasIndex(n => n.IsRead)
+                .HasDatabaseName("IX_Notifications_IsRead");
+            
+            // Конфигурация для BorrowedBook
+            modelBuilder.Entity<BorrowedBook>()
+                .HasOne(bb => bb.User)
+                .WithMany(u => u.BorrowedBooks)
+                .HasForeignKey(bb => bb.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            modelBuilder.Entity<BorrowedBook>()
+                .HasOne(bb => bb.Book)
+                .WithMany()
+                .HasForeignKey(bb => bb.BookId)
+                .OnDelete(DeleteBehavior.Restrict);
+                
+            modelBuilder.Entity<BorrowedBook>()
+                .HasIndex(bb => new { bb.UserId, bb.BorrowDate })
+                .HasDatabaseName("IX_BorrowedBooks_UserId_BorrowDate");
+                
+            modelBuilder.Entity<BorrowedBook>()
+                .HasIndex(bb => bb.DueDate)
+                .HasDatabaseName("IX_BorrowedBooks_DueDate");
+                
+            modelBuilder.Entity<BorrowedBook>()
+                .HasIndex(bb => bb.ReturnDate)
+                .HasDatabaseName("IX_BorrowedBooks_ReturnDate");
+            
+            // Конфигурация для FineRecord
+            modelBuilder.Entity<FineRecord>()
+                .HasOne(fr => fr.User)
+                .WithMany()
+                .HasForeignKey(fr => fr.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            modelBuilder.Entity<FineRecord>()
+                .HasOne(fr => fr.Reservation)
+                .WithMany()
+                .HasForeignKey(fr => fr.ReservationId)
+                .OnDelete(DeleteBehavior.SetNull);
+                
+            modelBuilder.Entity<FineRecord>()
+                .HasIndex(fr => new { fr.UserId, fr.CreatedAt })
+                .HasDatabaseName("IX_FineRecords_UserId_CreatedAt");
+                
+            modelBuilder.Entity<FineRecord>()
+                .HasIndex(fr => fr.IsPaid)
+                .HasDatabaseName("IX_FineRecords_IsPaid");
+                
+            modelBuilder.Entity<FineRecord>()
+                .HasIndex(fr => new { fr.ReservationId, fr.CalculatedForDate, fr.FineType })
+                .HasDatabaseName("IX_FineRecords_Reservation_Date_Type");
+            
+            // Конфигурация для BookInstance
+            modelBuilder.Entity<BookInstance>()
+                .HasOne(bi => bi.Book)
+                .WithMany()
+                .HasForeignKey(bi => bi.BookId)
+                .OnDelete(DeleteBehavior.Cascade);
+                
+            modelBuilder.Entity<BookInstance>()
+                .HasOne(bi => bi.Shelf)
+                .WithMany()
+                .HasForeignKey(bi => bi.ShelfId)
+                .OnDelete(DeleteBehavior.SetNull);
+                
+            modelBuilder.Entity<BookInstance>()
+                .HasIndex(bi => bi.InstanceCode)
+                .IsUnique()
+                .HasDatabaseName("IX_BookInstances_InstanceCode");
+                
+            modelBuilder.Entity<BookInstance>()
+                .HasIndex(bi => new { bi.BookId, bi.Status })
+                .HasDatabaseName("IX_BookInstances_BookId_Status");
+                
+            modelBuilder.Entity<BookInstance>()
+                .HasIndex(bi => new { bi.ShelfId, bi.Position })
+                .HasDatabaseName("IX_BookInstances_ShelfId_Position");
+
+            // Конфигурация связи Reservation -> BookInstance
+            modelBuilder.Entity<Reservation>()
+                .HasOne(r => r.BookInstance)
+                .WithMany()
+                .HasForeignKey(r => r.BookInstanceId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }

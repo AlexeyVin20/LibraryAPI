@@ -1,97 +1,40 @@
-using LibraryAPI.Data;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json.Serialization;
+using LibraryAPI.Data;
 using LibraryAPI.Services;
-using LibraryAPI.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi.Models;
-using Swashbuckle.AspNetCore.Filters;
-using System.Reflection;
-using Newtonsoft.Json;
+using LibraryAPI.Hubs;
+using LibraryAPI.Models;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<LibraryDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// Регистрация сервисов аутентификации
-builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IJwtService, JwtService>();
-
-// Настройка аутентификации
-var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
-builder.Services.AddAuthentication(options => 
+// Add services to the container.
+builder.Services.AddControllers().AddJsonOptions(options =>
 {
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(jwtSettings.SecretKey)),
-        ValidateIssuer = true,
-        ValidIssuer = jwtSettings.Issuer,
-        ValidateAudience = true,
-        ValidAudience = jwtSettings.Audience,
-        ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero
-    };
-    
-    options.SaveToken = true;
-    options.RequireHttpsMetadata = false;
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
-builder.Services.AddControllers()
-    .AddNewtonsoftJson(options =>
-    {
-        options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
-        options.SerializerSettings.Formatting = Formatting.Indented;
-    })
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
-        options.JsonSerializerOptions.WriteIndented = true;
-    });
-
-// Настройка Swagger
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
+builder.Services.AddSwaggerGen(c =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Библиотечная система API",
-        Version = "3.0.0",
-        Description = "API для управления библиотечной системой",
-        Contact = new OpenApiContact
-        {
-            Name = "Поддержка",
-            Email = "support@example.com"
-        }
-    });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Library API", Version = "v1" });
+    c.EnableAnnotations();
 
-    options.CustomSchemaIds(type => type.FullName);
-    
-    // Включаем поддержку аннотаций Swagger
-    options.EnableAnnotations();
-
-    // Добавление поддержки JWT-токенов в Swagger
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    // Настройка для JWT
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT токен авторизации (используйте 'Bearer ваш_токен')",
-        Name = "Authorization",
         In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT"
+        Description = "Please enter into field the word 'Bearer' following by space and JWT",
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
     });
 
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
             new OpenApiSecurityScheme
@@ -105,68 +48,128 @@ builder.Services.AddSwaggerGen(options =>
             new string[] {}
         }
     });
-
-    // Включение операций с JWT-токенами в Swagger
-    options.OperationFilter<SecurityRequirementsOperationFilter>();
-    
-    // Настройка генерации XML-документации
-    try
-    {
-        var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-        if (File.Exists(xmlPath))
-        {
-            options.IncludeXmlComments(xmlPath);
-        }
-    }
-    catch
-    {
-        // Игнорируем ошибки при загрузке XML-файла
-    }
 });
 
-// Добавление поддержки Newtonsoft JSON для Swagger
-builder.Services.AddSwaggerGenNewtonsoftSupport();
+// Настройка базы данных
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<LibraryDbContext>(options =>
+    options.UseNpgsql(connectionString));
 
+// Настройка JWT
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
+if (jwtSettings == null || string.IsNullOrEmpty(jwtSettings.SecretKey))
+{
+    throw new InvalidOperationException("JWT Key not configured.");
+}
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+
+            // If the request is for our hub...
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) &&
+                (path.StartsWithSegments("/notificationHub")))
+            {
+                // Read the token from the query string
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtSettings.Issuer,
+        ValidAudience = jwtSettings.Audience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey))
+    };
+});
+
+
+// Настройка SignalR
+builder.Services.AddSignalR();
+
+// Регистрация сервисов
+builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<ITemplateRenderer, TemplateRenderer>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IBookInstanceAllocationService, BookInstanceAllocationService>();
+
+
+// Настройка CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
-        builder => builder
-            .AllowAnyOrigin() 
-            .AllowAnyMethod()    
-            .AllowAnyHeader());   
+        policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        });
+    options.AddPolicy("AllowSpecificOrigin",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:3000") // URL вашего React-приложения
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        });
 });
+
+// Настройка Email
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+
+// Фоновый сервис для уведомлений
+// builder.Services.AddHostedService<NotificationBackgroundService>();
 
 var app = builder.Build();
 
+// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger(c =>
-    {
-        c.RouteTemplate = "swagger/{documentName}/swagger.json";
-    });
-    
+    app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Библиотечная система API v1");
-        c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
-        c.EnableDeepLinking();
-        c.DisplayRequestDuration();
-        c.SupportedSubmitMethods(Swashbuckle.AspNetCore.SwaggerUI.SubmitMethod.Get, 
-                               Swashbuckle.AspNetCore.SwaggerUI.SubmitMethod.Post,
-                               Swashbuckle.AspNetCore.SwaggerUI.SubmitMethod.Put,
-                               Swashbuckle.AspNetCore.SwaggerUI.SubmitMethod.Delete);
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Library API V1");
+        c.RoutePrefix = string.Empty;  // Swagger UI at the app's root
+        c.InjectStylesheet("/swagger-ui/custom.css");
+        c.InjectJavascript("/swagger-ui/custom.js");
     });
 }
 
-app.UseCors("AllowAll");
-
 app.UseHttpsRedirection();
+
+app.UseStaticFiles();
+
+app.UseRouting();
+
+// Add CORS policy
+app.UseCors(builder => builder
+    .WithOrigins("http://localhost:3000") // Replace with your client's origin
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials());
+
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers();
 
-app.Urls.Add("http://*:5001");
-app.Urls.Add("https://*:5000");
+app.MapControllers();
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();

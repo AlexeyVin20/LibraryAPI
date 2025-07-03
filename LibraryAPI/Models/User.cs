@@ -22,19 +22,6 @@ namespace LibraryAPI.Models
         [Phone]
         public string? Phone { get; set; }
 
-        public DateTime DateOfBirth { get; set; }
-
-        [Required]
-        [MaxLength(20)]
-        public string? PassportNumber { get; set; }
-
-        [Required]
-        [MaxLength(255)]
-        public string? PassportIssuedBy { get; set; }
-
-        public DateTime? PassportIssuedDate { get; set; }
-
-        public string? Address { get; set; }
         public DateTime DateRegistered { get; set; } = DateTime.UtcNow;
 
         // Новые поля
@@ -59,8 +46,12 @@ namespace LibraryAPI.Models
         [InverseProperty("User")]
         public List<UserRole>? UserRoles { get; set; }
 
-        // Навигационное свойство для связанных книг
-        public List<Book>? BorrowedBooks { get; set; }
+        // Навигационное свойство для взятых книг
+        public List<BorrowedBook>? BorrowedBooks { get; set; }
+        
+        // Избранные книги
+        [InverseProperty("User")]
+        public List<FavoriteBook>? FavoriteBooks { get; set; }
     }
 
     public class Role

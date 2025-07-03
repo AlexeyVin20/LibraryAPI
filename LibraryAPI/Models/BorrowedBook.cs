@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace LibraryAPI.Models
 {
@@ -32,8 +33,10 @@ namespace LibraryAPI.Models
         
         public int DaysOverdue => IsOverdue ? (int)(DateTime.UtcNow - DueDate).TotalDays : 0;
         
-        // Навигационные свойства
+        // Навигационные свойства - игнорируем при сериализации для предотвращения циклов
+        [JsonIgnore]
         public virtual User User { get; set; }
+        [JsonIgnore]
         public virtual Book Book { get; set; }
     }
 } 

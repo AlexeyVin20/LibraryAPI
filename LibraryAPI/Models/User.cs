@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace LibraryAPI.Models
 {
@@ -42,15 +43,18 @@ namespace LibraryAPI.Models
 
         public decimal FineAmount { get; set; } = 0; // кол-во задолженностей
 
-        // Система ролей
+        // Система ролей - игнорируем при сериализации чтобы избежать циклов
         [InverseProperty("User")]
+        [JsonIgnore]
         public List<UserRole>? UserRoles { get; set; }
 
         // Навигационное свойство для взятых книг
+        [JsonIgnore]
         public List<BorrowedBook>? BorrowedBooks { get; set; }
         
         // Избранные книги
         [InverseProperty("User")]
+        [JsonIgnore]
         public List<FavoriteBook>? FavoriteBooks { get; set; }
     }
 
@@ -66,6 +70,7 @@ namespace LibraryAPI.Models
         public string? Description { get; set; }
 
         [InverseProperty("Role")]
+        [JsonIgnore]
         public List<UserRole> UserRoles { get; set; } = new List<UserRole>();
     }
 
@@ -75,9 +80,11 @@ namespace LibraryAPI.Models
         public int RoleId { get; set; }
 
         [ForeignKey("UserId")]
+        [JsonIgnore]
         public User User { get; set; }
 
         [ForeignKey("RoleId")]
+        [JsonIgnore]
         public Role Role { get; set; }
     }
 }

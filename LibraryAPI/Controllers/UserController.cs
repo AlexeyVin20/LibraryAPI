@@ -24,7 +24,11 @@ namespace LibraryAPI.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
         {
-            var users = await _context.Users.ToListAsync();
+            var users = await _context.Users
+                .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                .ToListAsync();
+                
             return Ok(users.Select(u => new UserDto
             {
                 Id = u.Id,
@@ -40,7 +44,12 @@ namespace LibraryAPI.Controllers
                 MaxBooksAllowed = u.MaxBooksAllowed ?? 5,
                 LoanPeriodDays = u.LoanPeriodDays,
                 FineAmount = u.FineAmount,
-                UserRoles = u.UserRoles,
+                UserRoles = u.UserRoles?.Select(ur => new UserRoleDto
+                {
+                    UserId = ur.UserId,
+                    RoleId = ur.RoleId,
+                    RoleName = ur.Role.Name
+                }).ToList(),
                 BorrowedBooks = u.BorrowedBooks
             }));
         }
@@ -48,7 +57,11 @@ namespace LibraryAPI.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<UserDto>> GetUser(Guid id)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = await _context.Users
+                .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Id == id);
+                
             if (user == null)
                 return NotFound();
 
@@ -67,7 +80,12 @@ namespace LibraryAPI.Controllers
                 MaxBooksAllowed = user.MaxBooksAllowed ?? 5,
                 LoanPeriodDays = user.LoanPeriodDays,
                 FineAmount = user.FineAmount,
-                UserRoles = user.UserRoles,
+                UserRoles = user.UserRoles?.Select(ur => new UserRoleDto
+                {
+                    UserId = ur.UserId,
+                    RoleId = ur.RoleId,
+                    RoleName = ur.Role.Name
+                }).ToList(),
                 BorrowedBooks = user.BorrowedBooks
             });
         }
@@ -90,58 +108,68 @@ namespace LibraryAPI.Controllers
                 MaxBooksAllowed = userDto.MaxBooksAllowed,
                 LoanPeriodDays = userDto.LoanPeriodDays,
                 FineAmount = userDto.FineAmount,
-                UserRoles = userDto.UserRoles,
                 BorrowedBooks = userDto.BorrowedBooks
             };
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            // Назначаем роль "Гость" (id = 4) по умолчанию, если роли не были переопределены в запросе
-            if (userDto.UserRoles == null || !userDto.UserRoles.Any())
+            // Назначаем роли из запроса или роль "Гость" (id = 4) по умолчанию
+            var roleIds = userDto.RoleIds?.Any() == true ? userDto.RoleIds : new List<int> { 4 };
+            
+            foreach (var roleId in roleIds)
             {
-                var guestRoleId = 4;
-                var guestRole = await _context.Set<Role>().FindAsync(guestRoleId);
-                
-                if (guestRole != null)
+                var role = await _context.Set<Role>().FindAsync(roleId);
+                if (role != null)
                 {
                     var userRole = new UserRole
                     {
                         UserId = user.Id,
-                        RoleId = guestRoleId
+                        RoleId = roleId
                     };
 
                     _context.Set<UserRole>().Add(userRole);
-                    
-                    try
-                    {
-                        await _context.SaveChangesAsync();
-                    }
-                    catch (DbUpdateException ex)
-                    {
-                        // Если произошла ошибка при назначении роли, логируем её, но не прерываем создание пользователя
-                        // Можно добавить логирование здесь
-                    }
                 }
             }
+            
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                // Если произошла ошибка при назначении роли, логируем её, но не прерываем создание пользователя
+                // Можно добавить логирование здесь
+            }
+
+            // Возвращаем созданного пользователя с ролями
+            var createdUser = await _context.Users
+                .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Id == user.Id);
 
             return CreatedAtAction(nameof(GetUser), new { id = user.Id }, new UserDto
             {
-                Id = user.Id,
-                FullName = user.FullName,
-                Email = user.Email,
-                Phone = user.Phone,
-                DateRegistered = user.DateRegistered,
-                Username = user.Username,
-                PasswordHash = user.PasswordHash,
-                IsActive = user.IsActive,
-                LastLoginDate = user.LastLoginDate,
-                BorrowedBooksCount = user.BorrowedBooksCount ?? 0,
-                MaxBooksAllowed = user.MaxBooksAllowed ?? 5,
-                LoanPeriodDays = user.LoanPeriodDays,
-                FineAmount = user.FineAmount,
-                UserRoles = user.UserRoles,
-                BorrowedBooks = user.BorrowedBooks
+                Id = createdUser.Id,
+                FullName = createdUser.FullName,
+                Email = createdUser.Email,
+                Phone = createdUser.Phone,
+                DateRegistered = createdUser.DateRegistered,
+                Username = createdUser.Username,
+                PasswordHash = createdUser.PasswordHash,
+                IsActive = createdUser.IsActive,
+                LastLoginDate = createdUser.LastLoginDate,
+                BorrowedBooksCount = createdUser.BorrowedBooksCount ?? 0,
+                MaxBooksAllowed = createdUser.MaxBooksAllowed ?? 5,
+                LoanPeriodDays = createdUser.LoanPeriodDays,
+                FineAmount = createdUser.FineAmount,
+                UserRoles = createdUser.UserRoles?.Select(ur => new UserRoleDto
+                {
+                    UserId = ur.UserId,
+                    RoleId = ur.RoleId,
+                    RoleName = ur.Role.Name
+                }).ToList(),
+                BorrowedBooks = createdUser.BorrowedBooks
             });
         }
 
@@ -166,6 +194,29 @@ namespace LibraryAPI.Controllers
             user.LoanPeriodDays = userDto.LoanPeriodDays;
             user.FineAmount = userDto.FineAmount;
             user.BorrowedBooks = userDto.BorrowedBooks;
+
+            // Обновляем роли если они переданы
+            if (userDto.RoleIds != null)
+            {
+                // Удаляем старые роли
+                var existingRoles = user.UserRoles?.ToList() ?? new List<UserRole>();
+                _context.Set<UserRole>().RemoveRange(existingRoles);
+
+                // Добавляем новые роли
+                foreach (var roleId in userDto.RoleIds)
+                {
+                    var role = await _context.Set<Role>().FindAsync(roleId);
+                    if (role != null)
+                    {
+                        var userRole = new UserRole
+                        {
+                            UserId = user.Id,
+                            RoleId = roleId
+                        };
+                        _context.Set<UserRole>().Add(userRole);
+                    }
+                }
+            }
 
             try
             {

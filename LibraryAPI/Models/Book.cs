@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace LibraryAPI.Models
 {
@@ -65,6 +66,7 @@ namespace LibraryAPI.Models
 
 
         public int? ShelfId { get; set; }
+        [JsonIgnore]
         public Shelf Shelf { get; set; }
         public int? Position { get; internal set; }
     }

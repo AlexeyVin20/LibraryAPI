@@ -714,18 +714,8 @@ namespace LibraryAPI.Controllers
                 .Where(r => r.UserId == userId)
                 .Include(r => r.Book)
                 .Include(r => r.User)
-                .Select(r => new ReservationDto
-                {
-                    Id = r.Id,
-                    UserId = r.UserId,
-                    BookId = r.BookId,
-                    ReservationDate = r.ReservationDate,
-                    ExpirationDate = r.ExpirationDate,
-                    Status = r.Status.ToString(),
-                    Notes = r.Notes,
-                    User = r.User != null ? new UserDto { FullName = r.User.FullName } : null,
-                    Book = r.Book != null ? new BookDto { Title = r.Book.Title } : null
-                })
+                .Include(r => r.BookInstance)
+                    .ThenInclude(bi => bi.Shelf)
                 .ToListAsync();
 
             if (!reservations.Any())
@@ -733,7 +723,14 @@ namespace LibraryAPI.Controllers
                 return NotFound("Резервации для данного пользователя не найдены");
             }
 
-            return Ok(reservations);
+            var reservationDtos = new List<ReservationDto>();
+            foreach (var reservation in reservations)
+            {
+                var dto = await ToReservationDtoWithInstance(reservation);
+                reservationDtos.Add(dto);
+            }
+
+            return Ok(reservationDtos);
         }
     }
 }

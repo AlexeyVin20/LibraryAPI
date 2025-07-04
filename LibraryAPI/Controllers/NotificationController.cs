@@ -392,8 +392,38 @@ namespace LibraryAPI.Controllers
             try
             {
                 var user = await _authService.GetUserFromToken(User);
-                await _notificationService.SendDueRemindersToUsersWithBooksAsync();
-                return Ok(new { message = "Напоминания о возврате книг отправлены" });
+                // Получаем все резервации, у которых скоро истекает срок возврата
+                var soonReservations = await _context.Reservations
+                    .Include(r => r.User)
+                    .Include(r => r.Book)
+                    .Where(r => r.Status == Models.ReservationStatus.Выдана && r.ExpirationDate > DateTime.UtcNow && r.ExpirationDate <= DateTime.UtcNow.AddDays(2))
+                    .ToListAsync();
+                int sent = 0;
+                foreach (var reservation in soonReservations)
+                {
+                    if (reservation.User == null || string.IsNullOrEmpty(reservation.User.Email)) continue;
+                    var templateModel = new Dictionary<string, object>
+                    {
+                        { "UserName", reservation.User.FullName },
+                        { "BookTitle", reservation.Book?.Title ?? "" },
+                        { "DueDate", reservation.ExpirationDate.ToString("dd.MM.yyyy") },
+                        { "ReservationId", reservation.Id }
+                    };
+                    if (reservation.ActualReturnDate != null)
+                        templateModel["ActualReturnDate"] = reservation.ActualReturnDate?.ToString("dd.MM.yyyy");
+                    string templateName = GetTemplateNameForType("ReturnSoon");
+                    var expandoModel = new System.Dynamic.ExpandoObject() as IDictionary<string, object>;
+                    foreach (var kvp in templateModel) expandoModel[kvp.Key] = kvp.Value;
+                    string htmlBody = await _templateRenderer.RenderAsync(templateName, expandoModel);
+                    var emailSent = await _emailService.SendBulkEmailAsync(
+                        new List<string> { reservation.User.Email },
+                        "Напоминание о скором возврате книги",
+                        htmlBody,
+                        true
+                    );
+                    if (emailSent) sent++;
+                }
+                return Ok(new { message = $"Напоминания о возврате книг отправлены ({sent})" });
             }
             catch (Exception ex)
             {
@@ -423,8 +453,37 @@ namespace LibraryAPI.Controllers
             try
             {
                 var user = await _authService.GetUserFromToken(User);
-                await _notificationService.SendOverdueNotificationsToUsersWithBooksAsync();
-                return Ok(new { message = "Уведомления о просроченных книгах отправлены" });
+                var overdueReservations = await _context.Reservations
+                    .Include(r => r.User)
+                    .Include(r => r.Book)
+                    .Where(r => r.Status == Models.ReservationStatus.Просрочена)
+                    .ToListAsync();
+                int sent = 0;
+                foreach (var reservation in overdueReservations)
+                {
+                    if (reservation.User == null || string.IsNullOrEmpty(reservation.User.Email)) continue;
+                    var templateModel = new Dictionary<string, object>
+                    {
+                        { "UserName", reservation.User.FullName },
+                        { "BookTitle", reservation.Book?.Title ?? "" },
+                        { "DueDate", reservation.ExpirationDate.ToString("dd.MM.yyyy") },
+                        { "ReservationId", reservation.Id }
+                    };
+                    if (reservation.ActualReturnDate != null)
+                        templateModel["ActualReturnDate"] = reservation.ActualReturnDate?.ToString("dd.MM.yyyy");
+                    string templateName = GetTemplateNameForType("BookOverdue");
+                    var expandoModel = new System.Dynamic.ExpandoObject() as IDictionary<string, object>;
+                    foreach (var kvp in templateModel) expandoModel[kvp.Key] = kvp.Value;
+                    string htmlBody = await _templateRenderer.RenderAsync(templateName, expandoModel);
+                    var emailSent = await _emailService.SendBulkEmailAsync(
+                        new List<string> { reservation.User.Email },
+                        "Просрочка возврата книги",
+                        htmlBody,
+                        true
+                    );
+                    if (emailSent) sent++;
+                }
+                return Ok(new { message = $"Уведомления о просроченных книгах отправлены ({sent})" });
             }
             catch (Exception ex)
             {
@@ -454,8 +513,45 @@ namespace LibraryAPI.Controllers
             try
             {
                 var user = await _authService.GetUserFromToken(User);
-                await _notificationService.SendFineNotificationsToUsersWithFinesAsync();
-                return Ok(new { message = "Уведомления о штрафах отправлены" });
+                var fines = await _context.FineRecords
+                    .Include(f => f.User)
+                    .Include(f => f.Reservation)
+                        .ThenInclude(r => r.Book)
+                    .Where(f => !f.IsPaid)
+                    .ToListAsync();
+                int sent = 0;
+                foreach (var fine in fines)
+                {
+                    if (fine.User == null || string.IsNullOrEmpty(fine.User.Email)) continue;
+                    var templateModel = new Dictionary<string, object>
+                    {
+                        { "UserName", fine.User.FullName },
+                        { "BookTitle", fine.Reservation?.Book?.Title ?? "" },
+                        { "FineAmount", fine.Amount },
+                        { "Reason", fine.Reason },
+                        { "DateIssued", fine.CreatedAt.ToString("dd.MM.yyyy") },
+                        { "FineId", fine.Id },
+                        { "ReservationId", fine.Reservation?.Id ?? Guid.Empty }
+                    };
+                    if (fine.Reservation != null)
+                    {
+                        templateModel["DueDate"] = fine.Reservation.ExpirationDate.ToString("dd.MM.yyyy");
+                    }
+                    if (fine.Reservation?.ActualReturnDate != null)
+                        templateModel["ActualReturnDate"] = fine.Reservation.ActualReturnDate?.ToString("dd.MM.yyyy");
+                    string templateName = GetTemplateNameForType("FineAdded");
+                    var expandoModel = new System.Dynamic.ExpandoObject() as IDictionary<string, object>;
+                    foreach (var kvp in templateModel) expandoModel[kvp.Key] = kvp.Value;
+                    string htmlBody = await _templateRenderer.RenderAsync(templateName, expandoModel);
+                    var emailSent = await _emailService.SendBulkEmailAsync(
+                        new List<string> { fine.User.Email },
+                        "Уведомление о штрафе",
+                        htmlBody,
+                        true
+                    );
+                    if (emailSent) sent++;
+                }
+                return Ok(new { message = $"Уведомления о штрафах отправлены ({sent})" });
             }
             catch (Exception ex)
             {
@@ -508,16 +604,16 @@ namespace LibraryAPI.Controllers
         /// <response code="200">Тестовое уведомление успешно отправлено</response>
         /// <response code="401">Пользователь не авторизован</response>
         /// <response code="403">Недостаточно прав доступа</response>
-        [HttpPost("test-push/{userId}")]
-        [Authorize(Roles = "Администратор")]
+        [HttpPost("send-push/{userId}")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [SwaggerOperation(
             Summary = "Отправка тестового push уведомления",
-            Description = "Требуется JWT Bearer токен в заголовке Authorization и роль Администратор. Отправляет тестовое push уведомление указанному пользователю."
+            Description = "Требуется JWT Bearer токен в заголовке Authorization и роль Администратор или Библиотекарь. Отправляет тестовое push уведомление указанному пользователю."
         )]
-        public async Task<IActionResult> TestPushNotification(Guid userId, [FromBody] string message)
+        public async Task<IActionResult> SendPushNotification(Guid userId, [FromBody] string message)
         {
             try
             {
@@ -530,6 +626,63 @@ namespace LibraryAPI.Controllers
             {
                 _logger.LogError(ex, "Ошибка отправки тестового push уведомления");
                 return Unauthorized(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Отправка PUSH уведомления с кастомными параметрами (только для Администратор/Библиотекарь)
+        /// </summary>
+        [HttpPost("send-custom-push")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [SwaggerOperation(
+            Summary = "Отправка PUSH уведомления с кастомными параметрами",
+            Description = "Требуется JWT Bearer токен и роль Администратор или Библиотекарь. Отправляет PUSH уведомление конкретному пользователю с указанными параметрами."
+        )]
+        public async Task<IActionResult> SendCustomPushNotification([FromBody] PushNotificationRequestDto dto)
+        {
+            try
+            {
+                await _authService.GetUserFromToken(User);
+                await _notificationService.SendPushNotificationAsync(dto.UserId, dto.Title, dto.Message, dto.Type);
+                return Ok(new { message = "PUSH уведомление отправлено" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка отправки кастомного PUSH уведомления");
+                return StatusCode(500, new { message = "Внутренняя ошибка сервера.", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Отправка массовых PUSH уведомлений с кастомными параметрами (только для Администратор/Библиотекарь)
+        /// </summary>
+        [HttpPost("send-bulk-custom-push")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [SwaggerOperation(
+            Summary = "Отправка массовых PUSH уведомлений с кастомными параметрами",
+            Description = "Требуется JWT Bearer токен и роль Администратор или Библиотекарь. Отправляет PUSH уведомления нескольким пользователям."
+        )]
+        public async Task<IActionResult> SendBulkCustomPushNotification([FromBody] BulkPushNotificationRequestDto dto)
+        {
+            try
+            {
+                await _authService.GetUserFromToken(User);
+                foreach (var userId in dto.UserIds)
+                {
+                    await _notificationService.SendPushNotificationAsync(userId, dto.Title, dto.Message, dto.Type);
+                }
+                return Ok(new { message = $"Массовые PUSH уведомления отправлены ({dto.UserIds.Count} шт.)" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка отправки массовых кастомных PUSH уведомлений");
+                return StatusCode(500, new { message = "Внутренняя ошибка сервера.", error = ex.Message });
             }
         }
 
@@ -615,6 +768,48 @@ namespace LibraryAPI.Controllers
             {
                 _logger.LogError(ex, "Ошибка отправки массовых email уведомлений");
                 return Unauthorized(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Отправка email уведомления с кастомными параметрами (только для Администратор/Библиотекарь)
+        /// </summary>
+        [HttpPost("send-custom-single-email")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [SwaggerOperation(
+            Summary = "Отправка email уведомления с кастомными параметрами",
+            Description = "Требуется JWT Bearer токен и роль Администратор или Библиотекарь. Отправляет Email уведомление конкретному пользователю с простым текстовым сообщением."
+        )]
+        public async Task<IActionResult> SendCustomSingleEmail([FromBody] EmailNotificationRequestDto request)
+        {
+            try
+            {
+                await _authService.GetUserFromToken(User);
+
+                var templateData = new Dictionary<string, object>
+                {
+                    { "Message", request.Message }
+                };
+
+                var result = await _notificationService.SendEmailNotificationAsync(request.UserId, request.Title, request.Type, templateData);
+                
+                if (result)
+                {
+                    return Ok(new { message = "Email уведомление успешно отправлено" });
+                }
+                else
+                {
+                    return BadRequest(new { message = "Не удалось отправить email уведомление. Возможно, пользователь не найден или у него нет email." });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка отправки кастомного email уведомления");
+                return StatusCode(500, new { message = "Внутренняя ошибка сервера.", error = ex.Message });
             }
         }
 
@@ -820,6 +1015,17 @@ namespace LibraryAPI.Controllers
                 var templateModel = new Dictionary<string, object>(request.TemplateData);
                 templateModel["UserName"] = user.FullName;
                 templateModel["Title"] = request.Title;
+
+                // Если в TemplateData есть ReservationId, получить Reservation и добавить ActualReturnDate
+                if (request.TemplateData.TryGetValue("ReservationId", out var reservationIdObj) &&
+                    Guid.TryParse(reservationIdObj?.ToString(), out var reservationId))
+                {
+                    var reservation = await _context.Reservations.FindAsync(reservationId);
+                    if (reservation != null)
+                    {
+                        templateModel["ActualReturnDate"] = reservation.ActualReturnDate?.ToString("dd.MM.yyyy") ?? "—";
+                    }
+                }
 
                 // Преобразуем словарь в ExpandoObject
                 var expandoModel = new ExpandoObject();

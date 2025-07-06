@@ -24,6 +24,7 @@ namespace LibraryAPI.Data
         public DbSet<BorrowedBook> BorrowedBooks { get; set; }
         public DbSet<FineRecord> FineRecords { get; set; }
         public DbSet<BookInstance> BookInstances { get; set; }
+        public DbSet<Rubricator> Rubricators { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -191,7 +192,7 @@ namespace LibraryAPI.Data
             // Пароль: Admin123! (предварительно захешированный)
             var adminUserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
             // Статический хеш для пароля "Admin123!" с солью
-            var adminPasswordHash = "$2a$12$8K8VQzjZlZBZyf8GxXQzN.LKGGdHtWxJKYf8L9PQzFqGzYtJzFqGz";
+            var adminPasswordHash = "$2a$12$qs8l2GwWrvN3h2MDgxrZ.uHsNaaKWvjtJXCDrDNDM6gcOeC05vA8u";
 
             modelBuilder.Entity<User>().HasData(
                 new User

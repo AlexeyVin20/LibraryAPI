@@ -17,7 +17,7 @@ namespace LibraryAPI.Models.DTOs
         public int? MaxBooksAllowed { get; set; }
         public int LoanPeriodDays { get; set; }
         public decimal FineAmount { get; set; }
-        public List<UserRoleDto>? UserRoles { get; set; } // Изменили на DTO без циклических ссылок
+        public List<UserRoleDto>? UserRoles { get; set; }
         public List<BorrowedBook>? BorrowedBooks { get; set; }
         public List<Book>? FavoriteBooks { get; set; }
     }
@@ -36,7 +36,7 @@ namespace LibraryAPI.Models.DTOs
         public int? MaxBooksAllowed { get; set; }
         public int LoanPeriodDays { get; set; }
         public decimal FineAmount { get; set; }
-        public List<int>? RoleIds { get; set; } // Изменили на простой список ID ролей
+        public List<int>? RoleIds { get; set; }
         public List<BorrowedBook>? BorrowedBooks { get; set; }
         public List<Book>? FavoriteBooks { get; set; }
     }
@@ -54,7 +54,7 @@ namespace LibraryAPI.Models.DTOs
         public int? MaxBooksAllowed { get; set; }
         public int LoanPeriodDays { get; set; }
         public decimal FineAmount { get; set; }
-        public List<int>? RoleIds { get; set; } // Изменили на простой список ID ролей
+        public List<int>? RoleIds { get; set; } 
         public List<BorrowedBook>? BorrowedBooks { get; set; }
         public List<Book>? FavoriteBooks { get; set; }
     }
@@ -141,7 +141,6 @@ namespace LibraryAPI.Models.DTOs
         public DateTime? CalculatedForDate { get; set; }
         public string? FineType { get; set; }
         
-        // Дополнительная информация
         public string? UserName { get; set; }
         public string? BookTitle { get; set; }
         public string? ReservationStatus { get; set; }

@@ -619,8 +619,22 @@ namespace LibraryAPI.Controllers
             {
                 // Проверяем авторизацию через AuthService
                 var currentUser = await _authService.GetUserFromToken(User);
+
+                // Создаем уведомление в БД
+                var notificationDto = new NotificationCreateDto
+                {
+                    UserId = userId,
+                    Title = "Тестовое уведомление",
+                    Message = message,
+                    Type = Models.NotificationType.GeneralInfo,
+                    Priority = Models.NotificationPriority.Normal
+                };
+                var notification = await _notificationService.CreateNotificationAsync(notificationDto);
+
+                // Отправляем PUSH
                 await _notificationService.SendPushNotificationAsync(userId, "Тестовое уведомление", message, Models.NotificationType.GeneralInfo);
-                return Ok(new { message = "Тестовое push уведомление отправлено" });
+                
+                return Ok(new { message = "Тестовое push уведомление отправлено и сохранено в БД", notificationId = notification.Id });
             }
             catch (Exception ex)
             {
@@ -646,8 +660,22 @@ namespace LibraryAPI.Controllers
             try
             {
                 await _authService.GetUserFromToken(User);
+
+                // Создаем уведомление в БД
+                var notificationDto = new NotificationCreateDto
+                {
+                    UserId = dto.UserId,
+                    Title = dto.Title,
+                    Message = dto.Message,
+                    Type = dto.Type,
+                    Priority = Models.NotificationPriority.Normal // Устанавливаем приоритет по умолчанию
+                };
+                var notification = await _notificationService.CreateNotificationAsync(notificationDto);
+
+                // Отправляем PUSH
                 await _notificationService.SendPushNotificationAsync(dto.UserId, dto.Title, dto.Message, dto.Type);
-                return Ok(new { message = "PUSH уведомление отправлено" });
+                
+                return Ok(new { message = "PUSH уведомление отправлено и сохранено в БД", notificationId = notification.Id });
             }
             catch (Exception ex)
             {
@@ -673,11 +701,25 @@ namespace LibraryAPI.Controllers
             try
             {
                 await _authService.GetUserFromToken(User);
+
+                var notificationDto = new NotificationPushDto
+                {
+                    UserIds = dto.UserIds,
+                    Title = dto.Title,
+                    Message = dto.Message,
+                    Type = dto.Type,
+                    Priority = Models.NotificationPriority.Normal // Устанавливаем приоритет по умолчанию
+                };
+
+                // Создаем уведомления в БД
+                var createdNotifications = await _notificationService.CreateBulkNotificationsAsync(notificationDto);
+
+                // Отправляем PUSH каждому пользователю
                 foreach (var userId in dto.UserIds)
                 {
                     await _notificationService.SendPushNotificationAsync(userId, dto.Title, dto.Message, dto.Type);
                 }
-                return Ok(new { message = $"Массовые PUSH уведомления отправлены ({dto.UserIds.Count} шт.)" });
+                return Ok(new { message = $"Массовые PUSH уведомления отправлены ({dto.UserIds.Count} шт.) и сохранены в БД." });
             }
             catch (Exception ex)
             {
@@ -713,11 +755,24 @@ namespace LibraryAPI.Controllers
                 {
                     { "Message", dto.Message }
                 };
+
+                // Создаем уведомление в БД
+                var notificationDto = new NotificationCreateDto
+                {
+                    UserId = userId,
+                    Title = dto.Title,
+                    Message = dto.Message,
+                    Type = Models.NotificationType.GeneralInfo,
+                    Priority = Models.NotificationPriority.Normal
+                };
+                var notification = await _notificationService.CreateNotificationAsync(notificationDto);
+                
+                // Отправляем email
                 var result = await _notificationService.SendEmailNotificationAsync(userId, dto.Title, Models.NotificationType.GeneralInfo, templateData);
                 
                 if (result)
                 {
-                    return Ok(new { message = "Тестовое email уведомление отправлено" });
+                    return Ok(new { message = "Тестовое email уведомление отправлено и сохранено в БД", notificationId = notification.Id });
                 }
                 else
                 {
@@ -753,11 +808,15 @@ namespace LibraryAPI.Controllers
             try
             {
                 var user = await _authService.GetUserFromToken(User);
+
+                // Создаем уведомления в БД
+                var createdNotifications = await _notificationService.CreateBulkNotificationsAsync(dto);
+                
                 var result = await _notificationService.SendBulkEmailNotificationAsync(dto.UserIds, dto.Title, dto.Message, dto.Type);
                 
                 if (result)
                 {
-                    return Ok(new { message = "Массовые email уведомления отправлены" });
+                    return Ok(new { message = "Массовые email уведомления отправлены и сохранены в БД" });
                 }
                 else
                 {
@@ -795,11 +854,22 @@ namespace LibraryAPI.Controllers
                     { "Message", request.Message }
                 };
 
+                // Создаем уведомление в БД
+                var notificationDto = new NotificationCreateDto
+                {
+                    UserId = request.UserId,
+                    Title = request.Title,
+                    Message = request.Message,
+                    Type = request.Type,
+                    Priority = Models.NotificationPriority.Normal
+                };
+                var notification = await _notificationService.CreateNotificationAsync(notificationDto);
+
                 var result = await _notificationService.SendEmailNotificationAsync(request.UserId, request.Title, request.Type, templateData);
                 
                 if (result)
                 {
-                    return Ok(new { message = "Email уведомление успешно отправлено" });
+                    return Ok(new { message = "Email уведомление успешно отправлено и сохранено в БД", notificationId = notification.Id });
                 }
                 else
                 {
@@ -1038,6 +1108,17 @@ namespace LibraryAPI.Controllers
                 // 4. Сгенерировать HTML из шаблона и данных
                 string htmlBody = await _templateRenderer.RenderAsync(templateName, expandoModel);
 
+                // Создаем уведомление в БД
+                var notificationDto = new NotificationCreateDto
+                {
+                    UserId = request.UserId,
+                    Title = request.Title,
+                    Message = $"Email отправлен с использованием шаблона: {request.Type}", // Кастомное сообщение
+                    Type = Models.NotificationType.GeneralInfo, // Или другой подходящий тип
+                    Priority = Models.NotificationPriority.Normal
+                };
+                var notification = await _notificationService.CreateNotificationAsync(notificationDto);
+
                 // 5. Отправить email
                 var emailSent = await _emailService.SendBulkEmailAsync(
                     new List<string> { user.Email },
@@ -1049,7 +1130,7 @@ namespace LibraryAPI.Controllers
                 if (emailSent)
                 {
                     _logger.LogInformation($"Кастомный Email успешно отправлен пользователю {user.Email}.");
-                    return Ok(new { message = "Email успешно отправлен." });
+                    return Ok(new { message = "Email успешно отправлен и сохранен в БД.", notificationId = notification.Id });
                 }
                 else
                 {

@@ -2,18 +2,22 @@ using System.Reflection;
 using System.IO;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Hosting;
 
 namespace LibraryAPI.Services
 {
     public class TemplateRenderer : ITemplateRenderer
     {
-        public TemplateRenderer()
+        private readonly IWebHostEnvironment _hostingEnvironment;
+
+        public TemplateRenderer(IWebHostEnvironment hostingEnvironment)
         {
+            _hostingEnvironment = hostingEnvironment;
         }
 
         public async Task<string> RenderAsync<TModel>(string templatePath, TModel model)
         {
-            var path = Path.Combine(Directory.GetCurrentDirectory(), templatePath);
+            var path = Path.Combine(_hostingEnvironment.ContentRootPath, templatePath);
             if (!File.Exists(path))
             {
                 throw new FileNotFoundException($"Template not found at {path}");

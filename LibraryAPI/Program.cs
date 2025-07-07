@@ -11,8 +11,17 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var configPath = Environment.GetEnvironmentVariable("MAIN_CONFIG_PATH") ?? "main.json";
-builder.Configuration.AddJsonFile(configPath, optional: false, reloadOnChange: true);
+// Получаем путь к main.json из переменной окружения или используем по умолчанию
+var mainConfigPath = Environment.GetEnvironmentVariable("MAIN_CONFIG_PATH") ?? "main.json";
+Console.WriteLine($"Используется конфигурационный файл: {Path.GetFullPath(mainConfigPath)}");
+
+// Настраиваем конфигурацию
+builder.Configuration.Sources.Clear();
+builder.Configuration.AddJsonFile(mainConfigPath, optional: false, reloadOnChange: true);
+// Добавляем appsettings.json как дополнительный источник (если нужен)
+builder.Configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+// Добавляем переменные окружения как последний источник
+builder.Configuration.AddEnvironmentVariables();
 
 // Add services to the container.
 builder.Services.AddControllers().AddJsonOptions(options =>

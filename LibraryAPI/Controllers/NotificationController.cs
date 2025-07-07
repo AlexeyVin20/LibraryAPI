@@ -8,6 +8,7 @@ using Swashbuckle.AspNetCore.Annotations;
 using LibraryAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Dynamic;
+using System.IO;
 
 namespace LibraryAPI.Controllers
 {
@@ -1153,15 +1154,16 @@ namespace LibraryAPI.Controllers
         // Вспомогательные методы
         private string GetTemplateNameForType(string type)
         {
-            return type switch
+            var templateFileName = type switch
             {
-                "BookOverdue" => "Templates/OverdueEmail.html",
-                "FineAdded" => "Templates/FineEmail.html",
-                "ReturnSoon" => "Templates/ReturnSoonEmail.html",
-                "BookReturned" => "Templates/BookReturnedEmail.html",
-                "ReservationReady" => "Templates/ReservationEmail.html",
-                _ => "Templates/GeneralEmail.html",
+                "BookOverdue" => "OverdueEmail.html",
+                "FineAdded" => "FineEmail.html",
+                "ReturnSoon" => "ReturnSoonEmail.html",
+                "BookReturned" => "BookReturnedEmail.html",
+                "ReservationReady" => "ReservationEmail.html",
+                _ => "GeneralEmail.html",
             };
+            return Path.Combine("Templates", templateFileName);
         }
 
         [HttpGet("auth-test")]

@@ -1,4 +1,5 @@
-﻿services:
+﻿version: '3.8'
+services:
   postgres:
     image: postgres:latest
     container_name: librarycontainer
@@ -54,6 +55,19 @@
       "
     networks:
       - library-network
+
+  libraryapi:
+    build: .
+    ports:
+      - "5001:5001"
+      - "5000:5000"
+    # Секция для переменных окружения
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - MAIN_CONFIG_PATH=/app/main.json
+    # Монтируем файл с хост-машины внутрь контейнера
+    volumes:
+      - ./main.json:/app/main.json
 
 networks:
   library-network:

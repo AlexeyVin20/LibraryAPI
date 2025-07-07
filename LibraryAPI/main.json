@@ -31,12 +31,14 @@
   "AppSettings": {
     "ClientAppUrl": "http://localhost:3000"
   },
-    "NEXT_PUBLIC_BASE_URL": "http://localhost:5000",
-    "NEXT_PUBLIC_MINIO_ENDPOINT": "minio.your-domain.com",
-    "NEXT_PUBLIC_MINIO_PORT": "9000",
-    "NEXT_PUBLIC_MINIO_BUCKET": "library-prod",
-    "NEXT_PUBLIC_MINIO_USE_SSL": "true",
-    "NEXT_PUBLIC_GOOGLE_API_KEY": "ВАШ_GOOGLE_API_KEY",
-    "MINIO_ROOT_USER": "libraryuser",
-    "MINIO_ROOT_PASSWORD": "librarypass123"
+  "NEXT_PUBLIC_BASE_URL": "https://localhost:5000",
+  "NEXT_PUBLIC_GOOGLE_API_KEY": "AIzaSyCsZhUDcaD8D2A3aGYAORrs7IcCJHAg09s",
+  "NEXT_PUBLIC_OPENROUTER_API_KEY": "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",
+  
+  "NEXT_PUBLIC_MINIO_ENDPOINT": "127.0.0.1",
+  "NEXT_PUBLIC_MINIO_PORT": "9000",
+  "NEXT_PUBLIC_MINIO_BUCKET": "book-covers",
+  "NEXT_PUBLIC_MINIO_USE_SSL": "false",
+  "MINIO_ACCESS_KEY": "libraryuser",
+  "MINIO_SECRET_KEY": "librarypass123"
 }

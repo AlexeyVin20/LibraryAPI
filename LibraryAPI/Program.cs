@@ -12,7 +12,7 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 
 // Получаем путь к main.json из переменной окружения или используем по умолчанию
-var mainConfigPath = Environment.GetEnvironmentVariable("MAIN_CONFIG_PATH") ?? "main.json";
+var mainConfigPath = Environment.GetEnvironmentVariable("MAIN_CONFIG_PATH") ?? "/root/main.json";
 Console.WriteLine($"Используется конфигурационный файл: {Path.GetFullPath(mainConfigPath)}");
 
 // Настраиваем конфигурацию

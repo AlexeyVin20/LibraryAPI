@@ -11,6 +11,9 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var configPath = Environment.GetEnvironmentVariable("MAIN_CONFIG_PATH") ?? "main.json";
+builder.Configuration.AddJsonFile(configPath, optional: false, reloadOnChange: true);
+
 // Add services to the container.
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
@@ -52,6 +55,10 @@ builder.Services.AddSwaggerGen(c =>
 
 // Настройка базы данных
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrEmpty(connectionString))
+{
+    throw new InvalidOperationException("DefaultConnection is not configured in main.json.");
+}
 builder.Services.AddDbContext<LibraryDbContext>(options =>
     options.UseNpgsql(connectionString));
 
@@ -111,6 +118,11 @@ builder.Services.AddScoped<ITemplateRenderer, TemplateRenderer>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IBookInstanceAllocationService, BookInstanceAllocationService>();
 
+var clientAppUrl = builder.Configuration.GetValue<string>("AppSettings:ClientAppUrl");
+if (string.IsNullOrEmpty(clientAppUrl))
+{
+    throw new InvalidOperationException("AppSettings:ClientAppUrl is not configured in main.json.");
+}
 
 // Настройка CORS
 builder.Services.AddCors(options =>
@@ -125,7 +137,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowSpecificOrigin",
         policy =>
         {
-            policy.WithOrigins("http://localhost:3000") // URL вашего React-приложения
+            policy.WithOrigins(clientAppUrl) // URL вашего React-приложения
                   .AllowAnyMethod()
                   .AllowAnyHeader()
                   .AllowCredentials();
@@ -161,7 +173,7 @@ app.UseRouting();
 
 // Add CORS policy
 app.UseCors(builder => builder
-    .WithOrigins("http://localhost:3000") // Replace with your client's origin
+    .WithOrigins(clientAppUrl) // Replace with your client's origin
     .AllowAnyHeader()
     .AllowAnyMethod()
     .AllowCredentials());

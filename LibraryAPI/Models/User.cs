@@ -35,6 +35,8 @@ namespace LibraryAPI.Models
 
         public DateTime? LastLoginDate { get; set; }
 
+        public bool PasswordResetRequired { get; set; } = false;
+
         public int? BorrowedBooksCount { get; set; } = 0;
 
         public int? MaxBooksAllowed { get; set; } = 5;
@@ -56,6 +58,10 @@ namespace LibraryAPI.Models
         [InverseProperty("User")]
         [JsonIgnore]
         public List<FavoriteBook>? FavoriteBooks { get; set; }
+        
+        // Поля для сброса пароля
+        public string? PasswordResetToken { get; set; }
+        public DateTime? PasswordResetTokenExpires { get; set; }
     }
 
     public class Role

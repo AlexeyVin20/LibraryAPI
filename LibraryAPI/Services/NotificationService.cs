@@ -31,8 +31,17 @@ namespace LibraryAPI.Services
             _templateRenderer = templateRenderer;
         }
 
-        public async Task<Notification> CreateNotificationAsync(NotificationCreateDto dto)
+        /// Создание и отправка уведомления
+        /// </summary>
+        public async Task<Notification> CreateNotificationAsync(NotificationCreateDto dto, bool sendEmail = true, bool sendPush = true)
         {
+            var user = await _context.Users.FindAsync(dto.UserId);
+            if (user == null)
+            {
+                _logger.LogWarning($"Пользователь с ID {dto.UserId} не найден при создании уведомления.");
+                return null; // Или выбросить исключение, если это критично
+            }
+
             var notification = new Notification
             {
                 Id = Guid.NewGuid(),
@@ -47,16 +56,26 @@ namespace LibraryAPI.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Notifications.Add(notification);
+            await _context.Notifications.AddAsync(notification);
             await _context.SaveChangesAsync();
 
-            // Отправка push уведомления
-            await SendPushNotificationAsync(dto.UserId, dto.Title, dto.Message, dto.Type);
+            // Отправка кастомного Email, если есть TemplateData
+            if (sendEmail && dto.TemplateData != null && dto.TemplateData.Count > 0)
+            {
+                await SendEmailNotificationAsync(notification.UserId, notification.Title, notification.Type, dto.TemplateData);
+            }
+            // Отправка простого Email, если нет TemplateData, но есть сообщение
+            else if (sendEmail && !string.IsNullOrEmpty(dto.Message))
+            {
+                await SendEmailNotificationAsync(notification.UserId, notification.Title, Models.NotificationType.GeneralInfo, new Dictionary<string, object> { { "Message", dto.Message } });
+            }
 
-            // Отправка email уведомления с сохранением результата
-            await SendEmailNotificationWithSaveAsync(notification.Id, dto.UserId, dto.Title, dto.Type, dto.TemplateData);
+            // Отправка Push-уведомления через SignalR
+            if(sendPush)
+            {
+                await SendPushNotificationAsync(notification.UserId, notification.Title, notification.Message, notification.Type);
+            }
 
-            _logger.LogInformation($"Создано уведомление {notification.Id} для пользователя {dto.UserId}");
             return notification;
         }
 
@@ -99,6 +118,13 @@ namespace LibraryAPI.Services
             var message = $"Книга \"{dto.BookTitle}\" должна быть возвращена {dto.DueDate:dd.MM.yyyy}. " +
                          $"Осталось дней: {dto.DaysUntilDue}";
 
+            var templateData = new Dictionary<string, object>
+            {
+                { "BookTitle", dto.BookTitle },
+                { "DueDate", dto.DueDate.ToString("dd.MM.yyyy") },
+                { "DaysUntilDue", dto.DaysUntilDue.ToString() }
+            };
+
             var additionalData = JsonSerializer.Serialize(new
             {
                 BookId = dto.BookId,
@@ -116,7 +142,8 @@ namespace LibraryAPI.Services
                 Priority = NotificationPriority.High,
                 BookId = dto.BookId,
                 BorrowedBookId = null, // Не используем BorrowedBookId для резерваций
-                AdditionalData = additionalData
+                AdditionalData = JsonSerializer.Serialize(templateData),
+                TemplateData = templateData
             };
 
             await CreateNotificationAsync(notificationDto);
@@ -129,7 +156,7 @@ namespace LibraryAPI.Services
             var templateData = new Dictionary<string, object>
             {
                 { "BookTitle", dto.BookTitle },
-                { "ReturnDate", dto.DueDate.ToString("dd.MM.yyyy") },
+                { "DueDate", dto.DueDate.ToString("dd.MM.yyyy") },
                 { "DaysOverdue", dto.DaysOverdue.ToString() },
                 { "EstimatedFine", dto.EstimatedFine.ToString("C") }
             };
@@ -732,6 +759,14 @@ namespace LibraryAPI.Services
                     FineAmount = reservation.User.FineAmount,
                     PreviousFineAmount = reservation.User.FineAmount - newFineAmount,
                     Reason = fineRecord.Reason,
+                    TemplateData = new Dictionary<string, object>
+                    {
+                        { "FineAmount", reservation.User.FineAmount.ToString("C") },
+                        { "Reason", fineRecord.Reason },
+                        { "BookTitle", reservation.Book.Title },
+                        { "DueDate", reservation.ExpirationDate.ToString("dd.MM.yyyy") },
+                        { "DaysOverdue", daysOverdue.ToString() }
+                    },
                     OverdueBooks = new List<OverdueBookDto>
                     {
                         new OverdueBookDto
@@ -1126,6 +1161,7 @@ namespace LibraryAPI.Services
                 NotificationType.FineAdded => "Templates/FineEmail.html",
                 NotificationType.BookDueSoon => "Templates/ReturnSoonEmail.html",
                 NotificationType.BookReturned => "Templates/BookReturnedEmail.html",
+                NotificationType.ReservationReady => "Templates/ReservationEmail.html",
                 NotificationType.BookReserved => "Templates/ReservationEmail.html",
                 _ => "Templates/GeneralEmail.html",
             };

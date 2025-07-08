@@ -72,7 +72,10 @@ namespace LibraryAPI.Models
         AccountBlocked = 9,     // Аккаунт заблокирован
         AccountUnblocked = 10,  // Аккаунт разблокирован
         SystemMaintenance = 11, // Техническое обслуживание
-        GeneralInfo = 12        // Общая информация
+        GeneralInfo = 12,        // Общая информация
+        ReservationReady = 13,   // Резерв готов к выдаче
+        AccountCreated = 14,     // Учетная запись создана
+        PasswordChanged = 15     // Пароль изменен
     }
 
     public enum NotificationPriority

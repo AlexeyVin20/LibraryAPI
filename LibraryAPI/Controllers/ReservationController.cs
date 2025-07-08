@@ -470,38 +470,44 @@ namespace LibraryAPI.Controllers
             // Если статус изменился с не "Выдана" на "Выдана"
             if (!wasIssued && isIssued)
             {
-                if (book.AvailableCopies <= 0)
+                // Если экземпляр уже был назначен (зарезервирован ранее),
+                // дополнительные проверки количества доступных копий не требуются,
+                // так как сервис распределения экземпляров уже обновил их число.
+                if (!reservation.BookInstanceId.HasValue)
                 {
-                    // Если книг нет в наличии, обрабатываем очередь
-                    var earliestReturn = await _context.Reservations
-                        .Where(r => r.BookId == book.Id && 
-                               (r.Status == ReservationStatus.Одобрена || r.Status == ReservationStatus.Выдана))
-                        .OrderBy(r => r.ExpirationDate)
-                        .FirstOrDefaultAsync();
-
-                    if (earliestReturn != null)
+                    if (book.AvailableCopies <= 0)
                     {
-                        // Устанавливаем дату выдачи на дату возврата самой ранней резервации
-                        reservation.ReservationDate = earliestReturn.ExpirationDate;
+                        // Если книг нет в наличии, обрабатываем очередь
+                        var earliestReturn = await _context.Reservations
+                            .Where(r => r.BookId == book.Id && 
+                                   (r.Status == ReservationStatus.Одобрена || r.Status == ReservationStatus.Выдана))
+                            .OrderBy(r => r.ExpirationDate)
+                            .FirstOrDefaultAsync();
+
+                        if (earliestReturn != null)
+                        {
+                            // Устанавливаем дату выдачи на дату возврата самой ранней резервации
+                            reservation.ReservationDate = earliestReturn.ExpirationDate;
+                            
+                            // Обновляем статус и добавляем пометку
+                            reservation.Status = ReservationStatus.Обрабатывается;
+                            string queueNote = " (В очереди, доступна после: " + 
+                                              earliestReturn.ExpirationDate.ToString("dd.MM.yyyy") + ")";
+                            reservation.Notes = string.IsNullOrEmpty(reservation.Notes) ? 
+                                              queueNote.TrimStart() : 
+                                              reservation.Notes + queueNote;
+                            
+                            // Завершаем обработку без уменьшения количества копий
+                            await _context.SaveChangesAsync();
+                            return NoContent();
+                        }
                         
-                        // Обновляем статус и добавляем пометку
-                        reservation.Status = ReservationStatus.Обрабатывается;
-                        string queueNote = " (В очереди, доступна после: " + 
-                                          earliestReturn.ExpirationDate.ToString("dd.MM.yyyy") + ")";
-                        reservation.Notes = string.IsNullOrEmpty(reservation.Notes) ? 
-                                          queueNote.TrimStart() : 
-                                          reservation.Notes + queueNote;
-                        
-                        // Завершаем обработку без уменьшения количества копий
-                        await _context.SaveChangesAsync();
-                        return NoContent();
+                        return BadRequest("Нет доступных копий книги для резервации");
                     }
                     
-                    return BadRequest("Нет доступных копий книги для резервации");
+                    // Уменьшаем количество доступных копий
+                    book.AvailableCopies--;    
                 }
-                
-                // Уменьшаем количество доступных копий
-                book.AvailableCopies--;
             }
             // Если статус изменился с "Выдана" на не "Выдана"
             else if (wasIssued && !isIssued)

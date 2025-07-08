@@ -7,7 +7,7 @@ namespace LibraryAPI.Services
     public interface INotificationService
     {
         // Основные методы для создания уведомлений
-        Task<Notification> CreateNotificationAsync(NotificationCreateDto dto);
+        Task<Notification> CreateNotificationAsync(NotificationCreateDto dto, bool sendEmail = true, bool sendPush = true);
         Task<List<Notification>> CreateBulkNotificationsAsync(NotificationPushDto dto);
         
         // Специализированные методы для библиотечных уведомлений

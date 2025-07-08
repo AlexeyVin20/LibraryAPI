@@ -40,6 +40,7 @@ namespace LibraryAPI.Controllers
                 PasswordHash = u.PasswordHash,
                 IsActive = u.IsActive,
                 LastLoginDate = u.LastLoginDate,
+                PasswordResetRequired = u.PasswordResetRequired,
                 BorrowedBooksCount = u.BorrowedBooksCount ?? 0,
                 MaxBooksAllowed = u.MaxBooksAllowed ?? 5,
                 LoanPeriodDays = u.LoanPeriodDays,
@@ -76,6 +77,7 @@ namespace LibraryAPI.Controllers
                 PasswordHash = user.PasswordHash,
                 IsActive = user.IsActive,
                 LastLoginDate = user.LastLoginDate,
+                PasswordResetRequired = user.PasswordResetRequired,
                 BorrowedBooksCount = user.BorrowedBooksCount ?? 0,
                 MaxBooksAllowed = user.MaxBooksAllowed ?? 5,
                 LoanPeriodDays = user.LoanPeriodDays,
@@ -104,6 +106,7 @@ namespace LibraryAPI.Controllers
                 Username = userDto.Username,
                 PasswordHash = passwordHash,
                 IsActive = userDto.IsActive,
+                PasswordResetRequired = userDto.PasswordResetRequired,
                 BorrowedBooksCount = userDto.BorrowedBooksCount,
                 MaxBooksAllowed = userDto.MaxBooksAllowed,
                 LoanPeriodDays = userDto.LoanPeriodDays,
@@ -159,6 +162,7 @@ namespace LibraryAPI.Controllers
                 PasswordHash = createdUser.PasswordHash,
                 IsActive = createdUser.IsActive,
                 LastLoginDate = createdUser.LastLoginDate,
+                PasswordResetRequired = createdUser.PasswordResetRequired,
                 BorrowedBooksCount = createdUser.BorrowedBooksCount ?? 0,
                 MaxBooksAllowed = createdUser.MaxBooksAllowed ?? 5,
                 LoanPeriodDays = createdUser.LoanPeriodDays,
@@ -189,6 +193,7 @@ namespace LibraryAPI.Controllers
             user.DateRegistered = userDto.DateRegistered;
             user.Username = userDto.Username;
             user.IsActive = userDto.IsActive;
+            user.PasswordResetRequired = userDto.PasswordResetRequired;
             user.BorrowedBooksCount = userDto.BorrowedBooksCount;
             user.MaxBooksAllowed = userDto.MaxBooksAllowed;
             user.LoanPeriodDays = userDto.LoanPeriodDays;
@@ -258,8 +263,28 @@ namespace LibraryAPI.Controllers
             }
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword, BCrypt.Net.BCrypt.GenerateSalt(12));
+            user.PasswordResetRequired = false;
             await _context.SaveChangesAsync();
             return Ok(new { message = "Пароль успешно изменён" });
+        }
+
+        [HttpPost("{id}/reset-password")]
+        public async Task<IActionResult> ResetPassword(Guid id)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null)
+            {
+                return NotFound(new { message = "Пользователь не найден" });
+            }
+
+            // Устанавливаем пароль по умолчанию. Рекомендуется использовать более безопасный способ генерации пароля.
+            var defaultPassword = "Password";
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(defaultPassword, BCrypt.Net.BCrypt.GenerateSalt(12));
+            user.PasswordResetRequired = true;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = $"Пароль для пользователя {user.Username} был сброшен. Новый пароль: {defaultPassword}" });
         }
 
         [HttpDelete("{id}")]

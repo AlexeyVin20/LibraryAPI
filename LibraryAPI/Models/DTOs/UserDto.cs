@@ -13,6 +13,7 @@ namespace LibraryAPI.Models.DTOs
         public string PasswordHash { get; set; }
         public bool IsActive { get; set; }
         public DateTime? LastLoginDate { get; set; }
+        public bool PasswordResetRequired { get; set; }
         public int? BorrowedBooksCount { get; set; }
         public int? MaxBooksAllowed { get; set; }
         public int LoanPeriodDays { get; set; }
@@ -32,6 +33,7 @@ namespace LibraryAPI.Models.DTOs
         public string Username { get; set; }
         public string Password { get; set; }
         public bool IsActive { get; set; }
+        public bool PasswordResetRequired { get; set; }
         public int? BorrowedBooksCount { get; set; }
         public int? MaxBooksAllowed { get; set; }
         public int LoanPeriodDays { get; set; }
@@ -50,6 +52,7 @@ namespace LibraryAPI.Models.DTOs
         public DateTime DateRegistered { get; set; }
         public string Username { get; set; }
         public bool IsActive { get; set; }
+        public bool PasswordResetRequired { get; set; }
         public int? BorrowedBooksCount { get; set; }
         public int? MaxBooksAllowed { get; set; }
         public int LoanPeriodDays { get; set; }

@@ -43,6 +43,7 @@ namespace LibraryAPI.Models
         public string RefreshToken { get; set; }
         public DateTime ExpiresAt { get; set; }
         public AuthUserDto User { get; set; }
+        public bool PasswordResetRequired { get; set; }
     }
 
     public class AuthUserDto
@@ -59,6 +60,7 @@ namespace LibraryAPI.Models
         public int MaxBooksAllowed { get; set; }
         public int LoanPeriodDays { get; set; }
         public decimal FineAmount { get; set; }
+        public bool PasswordResetRequired { get; set; }
         public string[] Roles { get; set; }
     }
 
@@ -66,5 +68,25 @@ namespace LibraryAPI.Models
     {
         [Required]
         public string RefreshToken { get; set; }
+    }
+
+    public class ForgotPasswordRequest
+    {
+        [Required]
+        public string Identifier { get; set; }
+    }
+
+    public class ResetPasswordWithTokenRequest
+    {
+        [Required]
+        public string Token { get; set; }
+
+        // Email больше не обязателен, используем только при наличии
+        [EmailAddress]
+        public string Email { get; set; }
+
+        [Required]
+        [MinLength(6)]
+        public string NewPassword { get; set; }
     }
 } 

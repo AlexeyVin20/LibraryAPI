@@ -1087,57 +1087,55 @@ namespace LibraryAPI.Controllers
                 templateModel["UserName"] = user.FullName;
                 templateModel["Title"] = request.Title;
 
-                // Если в TemplateData есть ReservationId, получить Reservation и добавить ActualReturnDate
                 if (request.TemplateData.TryGetValue("ReservationId", out var reservationIdObj) &&
                     Guid.TryParse(reservationIdObj?.ToString(), out var reservationId))
                 {
-                    var reservation = await _context.Reservations.FindAsync(reservationId);
+                    var reservation = await _context.Reservations.Include(r => r.Book).FirstOrDefaultAsync(r => r.Id == reservationId);
                     if (reservation != null)
                     {
                         templateModel["ActualReturnDate"] = reservation.ActualReturnDate?.ToString("dd.MM.yyyy") ?? "—";
+                        if (!templateModel.ContainsKey("BookTitle"))
+                            templateModel["BookTitle"] = reservation.Book?.Title ?? "";
+                        if (!templateModel.ContainsKey("DueDate"))
+                            templateModel["DueDate"] = reservation.ExpirationDate.ToString("dd.MM.yyyy");
                     }
                 }
-
-                // Преобразуем словарь в ExpandoObject
-                var expandoModel = new ExpandoObject();
-                var modelAsDictionary = (IDictionary<string, object>)expandoModel;
-                foreach (var kvp in templateModel)
+                
+                if (!Enum.TryParse<Models.NotificationType>(request.Type, out var parsedType))
                 {
-                    modelAsDictionary[kvp.Key] = kvp.Value;
+                    parsedType = Models.NotificationType.GeneralInfo;
                 }
 
-                // 4. Сгенерировать HTML из шаблона и данных
+                // 4. Рендеринг HTML
+                var expandoModel = new System.Dynamic.ExpandoObject() as IDictionary<string, object>;
+                foreach (var kvp in templateModel) expandoModel[kvp.Key] = kvp.Value;
                 string htmlBody = await _templateRenderer.RenderAsync(templateName, expandoModel);
 
-                // Создаем уведомление в БД
+                // 5. Отправка email
+                var emailSent = await _emailService.SendEmailAsync(
+                    user.Email,
+                    request.Title,
+                    htmlBody,
+                    isHtml: true
+                );
+
+                if (!emailSent)
+                {
+                    _logger.LogWarning("Не удалось отправить кастомный email пользователю {UserId}", request.UserId);
+                }
+
+                // 6. Создаем уведомление в БД (без TemplateData, чтобы избежать дублирования отправки)
                 var notificationDto = new NotificationCreateDto
                 {
                     UserId = request.UserId,
                     Title = request.Title,
-                    Message = $"Email отправлен с использованием шаблона: {request.Type}", // Кастомное сообщение
-                    Type = Models.NotificationType.GeneralInfo, // Или другой подходящий тип
+                    Message = $"Email отправлен с использованием шаблона: {request.Type}. Статус отправки: {(emailSent ? "Успешно" : "Ошибка")}",
+                    Type = parsedType,
                     Priority = Models.NotificationPriority.Normal
                 };
-                var notification = await _notificationService.CreateNotificationAsync(notificationDto);
+                var notification = await _notificationService.CreateNotificationAsync(notificationDto, sendEmail: false, sendPush: false);
 
-                // 5. Отправить email
-                var emailSent = await _emailService.SendBulkEmailAsync(
-                    new List<string> { user.Email },
-                    request.Title,
-                    htmlBody,
-                    true // isHtml
-                );
-                
-                if (emailSent)
-                {
-                    _logger.LogInformation($"Кастомный Email успешно отправлен пользователю {user.Email}.");
-                    return Ok(new { message = "Email успешно отправлен и сохранен в БД.", notificationId = notification.Id });
-                }
-                else
-                {
-                    _logger.LogError($"Ошибка при отправке кастомного email пользователю {user.Email}.");
-                    return StatusCode(500, new { message = "Ошибка при отправке email." });
-                }
+                return Ok(new { message = "Email успешно обработан и сохранен в БД.", notificationId = notification.Id, emailSent });
             }
             catch (FileNotFoundException ex)
             {
@@ -1161,6 +1159,7 @@ namespace LibraryAPI.Controllers
                 "ReturnSoon" => "ReturnSoonEmail.html",
                 "BookReturned" => "BookReturnedEmail.html",
                 "ReservationReady" => "ReservationEmail.html",
+                "PasswordReset" => "PasswordResetEmail.html",
                 _ => "GeneralEmail.html",
             };
             return Path.Combine("Templates", templateFileName);

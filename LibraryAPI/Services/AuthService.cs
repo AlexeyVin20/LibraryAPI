@@ -9,6 +9,10 @@ using LibraryAPI.Data;
 using LibraryAPI.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Dynamic;
+using System.IO;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace LibraryAPI.Services
 {
@@ -18,6 +22,8 @@ namespace LibraryAPI.Services
         Task<AuthResponse> Register(RegisterRequest request);
         Task<AuthResponse> RefreshToken(string refreshToken);
         Task<User> GetUserFromToken(ClaimsPrincipal user);
+        Task<bool> ForgotPassword(string identifier);
+        Task<bool> ResetPassword(ResetPasswordWithTokenRequest request);
     }
 
     public class AuthService : IAuthService
@@ -25,15 +31,27 @@ namespace LibraryAPI.Services
         private readonly LibraryDbContext _context;
         private readonly IJwtService _jwtService;
         private readonly JwtSettings _jwtSettings;
+        private readonly IEmailService _emailService;
+        private readonly ITemplateRenderer _templateRenderer;
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<AuthService> _logger;
 
         public AuthService(
             LibraryDbContext context,
             IJwtService jwtService,
-            IOptions<JwtSettings> jwtSettings)
+            IOptions<JwtSettings> jwtSettings,
+            IEmailService emailService,
+            ITemplateRenderer templateRenderer,
+            IConfiguration configuration,
+            ILogger<AuthService> logger)
         {
             _context = context;
             _jwtService = jwtService;
             _jwtSettings = jwtSettings.Value;
+            _emailService = emailService;
+            _templateRenderer = templateRenderer;
+            _configuration = configuration;
+            _logger = logger;
         }
 
         public async Task<AuthResponse> Login(LoginRequest request)
@@ -53,7 +71,7 @@ namespace LibraryAPI.Services
                 throw new Exception("Неверный пароль");
             }
 
-            return await GenerateAuthResponse(user);
+            return await GenerateAuthResponse(user, user.PasswordResetRequired);
         }
 
         public async Task<AuthResponse> Register(RegisterRequest request)
@@ -148,7 +166,94 @@ namespace LibraryAPI.Services
             return user;
         }
 
-        private async Task<AuthResponse> GenerateAuthResponse(User user)
+        public async Task<bool> ForgotPassword(string identifier)
+        {
+            // Определяем, что передано: email или логин
+            User user;
+            if (!string.IsNullOrWhiteSpace(identifier) && identifier.Contains("@"))
+            {
+                user = await _context.Users.FirstOrDefaultAsync(u => u.Email == identifier);
+            }
+            else
+            {
+                user = await _context.Users.FirstOrDefaultAsync(u => u.Username == identifier);
+            }
+
+            if (user == null)
+            {
+                // Не раскрываем, существует ли пользователь, для безопасности
+                return true; // Всегда true, чтобы не раскрывать наличие пользователя
+            }
+
+            // Генерируем токен
+            var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+            token = token.Replace('+', '-').Replace('/', '_'); // Делаем токен URL-safe
+
+            user.PasswordResetToken = token;
+            user.PasswordResetTokenExpires = DateTime.UtcNow.AddHours(1); // Токен действителен 1 час
+
+            await _context.SaveChangesAsync();
+
+            // Формируем ссылку для сброса, используя URL из конфигурации
+            var clientAppUrl = _configuration["AppSettings:ClientAppUrl"];
+            if (string.IsNullOrEmpty(clientAppUrl))
+            {
+                throw new InvalidOperationException("ClientAppUrl не настроен в конфигурации (AppSettings:ClientAppUrl).");
+            }
+            var resetLink = $"{clientAppUrl.TrimEnd('/')}/reset-password?token={token}&email={Uri.EscapeDataString(user.Email)}";
+
+            // Готовим данные для шаблона
+            var templateModel = new ExpandoObject() as IDictionary<string, object>;
+            templateModel.Add("UserName", user.FullName);
+            templateModel.Add("ResetLink", resetLink);
+            templateModel.Add("Year", DateTime.Now.Year);
+
+            // Рендерим шаблон
+            var templatePath = Path.Combine("Templates", "PasswordResetEmail.html");
+            string htmlBody = await _templateRenderer.RenderAsync(templatePath, (ExpandoObject)templateModel);
+
+            // Отправляем email
+            var emailSent = await _emailService.SendEmailAsync(user.Email, "Сброс пароля", htmlBody);
+
+            if (!emailSent)
+            {
+                _logger.LogError("Ошибка отправки письма сброса пароля пользователю {Email}", user.Email);
+            }
+
+            return emailSent;
+        }
+
+        public async Task<bool> ResetPassword(ResetPasswordWithTokenRequest request)
+        {
+            // Ищем пользователя по токену сброса пароля
+            var query = _context.Users.AsQueryable();
+
+            // Если в запросе передан email, дополнительно проверим его соответствие
+            if (!string.IsNullOrWhiteSpace(request.Email))
+            {
+                query = query.Where(u => u.Email == request.Email);
+            }
+
+            var user = await query.FirstOrDefaultAsync(u =>
+                u.PasswordResetToken == request.Token &&
+                u.PasswordResetTokenExpires > DateTime.UtcNow);
+
+            if (user == null)
+            {
+                return false;
+            }
+
+            user.PasswordHash = HashPassword(request.NewPassword);
+            user.PasswordResetRequired = false;
+            user.PasswordResetToken = null;
+            user.PasswordResetTokenExpires = null;
+
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+
+        private async Task<AuthResponse> GenerateAuthResponse(User user, bool passwordResetRequired = false)
         {
             // Получаем роли пользователя
             var roles = user.UserRoles.Select(ur => ur.Role.Name).ToList();
@@ -196,8 +301,10 @@ namespace LibraryAPI.Services
                     MaxBooksAllowed = user.MaxBooksAllowed ?? 5,
                     LoanPeriodDays = user.LoanPeriodDays,
                     FineAmount = user.FineAmount,
+                    PasswordResetRequired = passwordResetRequired,
                     Roles = roles.ToArray()
-                }
+                },
+                PasswordResetRequired = passwordResetRequired
             };
         }
 

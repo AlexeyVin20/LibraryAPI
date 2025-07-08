@@ -32,9 +32,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Templates\**">
+    <None Update="Templates\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    </None>
   </ItemGroup>
 
 </Project>

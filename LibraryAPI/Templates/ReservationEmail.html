@@ -4,6 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📅 Книга зарезервирована</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9f9f9; margin: 0; }
+        .header { padding: 25px; color: #ffffff; text-align: center; }
+        .importance-low { background-color: #3498db; }
+        .importance-high { background-color: #f39c12; }
+        .importance-critical { background-color: #e74c3c; }
+        .importance-success { background-color: #2ecc71; }
+        .alert-box { padding: 15px; margin: 20px 0; border-left: 4px solid; }
+        .alert-low { background-color: #f2f8fc; border-color: #3498db; }
+        .alert-high { background-color: #fef9f2; border-color: #f39c12; }
+        .alert-critical { background-color: #fff8f8; border-color: #e74c3c; }
+        .alert-success { background-color: #f2fcf5; border-color: #2ecc71; }
+    </style>
 </head>
 <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9f9f9; margin: 0; padding: 20px;">
     <table width="100%" border="0" cellspacing="0" cellpadding="0">
@@ -12,7 +25,7 @@
                 <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                     <!-- Header -->
                     <tr>
-                        <td align="center" style="background-color: #3498db; padding: 25px; color: #ffffff;">
+                        <td align="center" class="header importance-low">
                             <h1 style="margin: 0; font-size: 32px; font-weight: bold;">📅 Резерв</h1>
                         </td>
                     </tr>
@@ -23,7 +36,7 @@
                             <p style="font-size: 16px; color: #555555; line-height: 1.7;">
                                 Книга, которую вы резервировали, доступна и ждет вас в библиотеке.
                             </p>
-                            <div style="background-color: #f2f8fc; border-left: 4px solid #3498db; padding: 15px; margin: 20px 0;">
+                            <div class="alert-box alert-low">
                                 <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 16px;">
                                     <tr>
                                         <td width="30%" style="padding: 8px 0; color: #333333;"><strong>📚 Книга</strong></td>

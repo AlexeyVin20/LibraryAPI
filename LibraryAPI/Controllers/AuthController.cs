@@ -92,6 +92,32 @@ namespace LibraryAPI.Controllers
             }
         }
 
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            var emailSent = await _authService.ForgotPassword(request.Identifier);
+
+            if (!emailSent)
+            {
+                return StatusCode(500, new { message = "Не удалось отправить письмо. Попробуйте позже." });
+            }
+
+            // Всегда одинаковый ответ, чтобы не раскрывать существование email
+            return Ok(new { message = "Если пользователь с таким email существует, ему будет отправлена ссылка для сброса пароля." });
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordWithTokenRequest request)
+        {
+            var success = await _authService.ResetPassword(request);
+            if (!success)
+            {
+                return BadRequest(new { message = "Неверный токен или срок его действия истек." });
+            }
+
+            return Ok(new { message = "Пароль успешно сброшен." });
+        }
+
         /// <summary>
         /// Получение информации о текущем авторизованном пользователе
         /// </summary>

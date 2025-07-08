@@ -135,6 +135,7 @@ namespace LibraryAPI.Models.DTOs
         public string BookAuthors { get; set; }
         public DateTime DueDate { get; set; }
         public int DaysUntilDue { get; set; }
+        public Dictionary<string, object> TemplateData { get; set; } = new Dictionary<string, object>();
     }
 
     public class OverdueNotificationDto
@@ -147,6 +148,7 @@ namespace LibraryAPI.Models.DTOs
         public DateTime DueDate { get; set; }
         public int DaysOverdue { get; set; }
         public decimal EstimatedFine { get; set; }
+        public Dictionary<string, object> TemplateData { get; set; } = new Dictionary<string, object>();
     }
 
     public class FineNotificationDto
@@ -156,6 +158,7 @@ namespace LibraryAPI.Models.DTOs
         public decimal PreviousFineAmount { get; set; }
         public string Reason { get; set; }
         public List<OverdueBookDto> OverdueBooks { get; set; }
+        public Dictionary<string, object> TemplateData { get; set; } = new Dictionary<string, object>();
     }
 
     public class OverdueBookDto

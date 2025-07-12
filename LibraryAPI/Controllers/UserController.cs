@@ -5,6 +5,7 @@ using LibraryAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authorization;
 
 namespace LibraryAPI.Controllers
 {
@@ -22,6 +23,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
         {
             var users = await _context.Users
@@ -56,6 +58,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<ActionResult<UserDto>> GetUser(Guid id)
         {
             var user = await _context.Users
@@ -93,6 +96,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<ActionResult<UserDto>> CreateUser([FromBody] UserCreateDto userDto)
         {
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(userDto.Password, BCrypt.Net.BCrypt.GenerateSalt(12));
@@ -178,6 +182,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UserUpdateDto userDto)
         {
             var user = await _context.Users
@@ -240,6 +245,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPost("change-password")]
+        [Authorize]
         public async Task<IActionResult> ChangePassword([FromBody] UserChangePasswordDto dto)
         {
             var user = await _context.Users.FindAsync(dto.Id);
@@ -269,6 +275,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPost("{id}/reset-password")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<IActionResult> ResetPassword(Guid id)
         {
             var user = await _context.Users.FindAsync(id);
@@ -288,6 +295,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<IActionResult> DeleteUser(Guid id)
         {
             var user = await _context.Users.FindAsync(id);
@@ -300,6 +308,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPost("assign-role")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<IActionResult> AssignRole([FromBody] UserRoleCreateDto dto)
         {
             var user = await _context.Users.FindAsync(dto.UserId);
@@ -340,6 +349,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPost("assign-roles")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<IActionResult> AssignRoles([FromBody] AssignRolesDto dto)
         {
             var role = await _context.Set<Role>().FindAsync(dto.RoleId);
@@ -380,6 +390,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPut("update-role")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<IActionResult> UpdateUserRole([FromBody] UserRoleUpdateDto dto)
         {
             var user = await _context.Users.FindAsync(dto.UserId);
@@ -428,6 +439,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPost("remove-role")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<IActionResult> RemoveUserRole([FromBody] UserRoleDeleteDto dto)
         {
             var user = await _context.Users.FindAsync(dto.UserId);
@@ -458,6 +470,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpGet("roles")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<ActionResult<IEnumerable<object>>> GetRoles()
         {
             var rolesWithCounts = await _context.Set<Role>()
@@ -476,6 +489,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpGet("{id}/roles")]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<UserRoleDto>>> GetUserRoles(Guid id)
         {
             var user = await _context.Users
@@ -497,6 +511,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPost("roles")]
+        [Authorize(Roles = "Администратор")]
         public async Task<ActionResult<Role>> CreateRole([FromBody] Role role)
         {
             if (await _context.Set<Role>().AnyAsync(r => r.Name == role.Name))
@@ -517,6 +532,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPut("roles/{id:int}")]
+        [Authorize(Roles = "Администратор")]
         public async Task<IActionResult> UpdateRole(int id, [FromBody] Role roleUpdateData)
         {
             if (roleUpdateData == null || string.IsNullOrWhiteSpace(roleUpdateData.Name))
@@ -564,6 +580,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpDelete("roles/{id:int}")]
+        [Authorize(Roles = "Администратор")]
         public async Task<IActionResult> DeleteRole(int id)
         {
             var role = await _context.Set<Role>().FindAsync(id);
@@ -600,6 +617,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPost("{id}/update-borrowed-count")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<IActionResult> UpdateBorrowedBooksCount(Guid id, [FromBody] UserUpdateBorrowedCountDto dto)
         {
             var user = await _context.Users.FindAsync(id);
@@ -624,6 +642,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpGet("{id}/favorites")]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<FavoriteBookDto>>> GetFavoriteBooks(Guid id)
         {
             var user = await _context.Users.FindAsync(id);
@@ -647,6 +666,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPost("{id}/favorites")]
+        [Authorize]
         public async Task<IActionResult> AddFavoriteBook(Guid id, [FromBody] FavoriteBookCreateDto dto)
         {
             var user = await _context.Users.FindAsync(id);
@@ -684,6 +704,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpDelete("{id}/favorites/{bookId}")]
+        [Authorize]
         public async Task<IActionResult> RemoveFavoriteBook(Guid id, Guid bookId)
         {
             var favoriteBook = await _context.FavoriteBooks
@@ -706,6 +727,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpGet("users-with-roles")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<IActionResult> GetUsersWithRoles()
         {
             var users = await _context.Users
@@ -725,6 +747,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPost("remove-roles")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<IActionResult> RemoveRoles([FromBody] RemoveRolesDto dto)
         {
             var userRoles = await _context.Set<UserRole>()
@@ -752,6 +775,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpGet("with-books")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<IActionResult> GetUsersWithBooks()
         {
             // Оптимизированный запрос: сначала получаем пользователей с активными резервированиями
@@ -827,6 +851,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpGet("with-fines")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<IActionResult> GetUsersWithFines()
         {
             // Получаем пользователей со штрафами
@@ -936,6 +961,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpGet("{id}/reservations")]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<ReservationDto>>> GetUserReservations(Guid id, [FromQuery] string? status = null)
         {
             var user = await _context.Users.FindAsync(id);
@@ -983,6 +1009,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpGet("{id}/active-reservations")]
+        [Authorize]
         public async Task<ActionResult<object>> GetUserActiveReservations(Guid id)
         {
             var user = await _context.Users.FindAsync(id);
@@ -1029,6 +1056,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpGet("{id}/overdue-reservations")]
+        [Authorize]
         public async Task<ActionResult<object>> GetUserOverdueReservations(Guid id)
         {
             var user = await _context.Users.FindAsync(id);
@@ -1071,6 +1099,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPost("{id}/extend-reservation/{reservationId}")]
+        [Authorize]
         public async Task<IActionResult> ExtendReservation(Guid id, Guid reservationId, [FromBody] ExtendReservationDto dto)
         {
             var user = await _context.Users.FindAsync(id);
@@ -1123,6 +1152,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPost("{id}/fine")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<IActionResult> AddFineToUser(Guid id, [FromBody] UserFineCreateDto dto)
         {
             var user = await _context.Users.FindAsync(id);
@@ -1247,6 +1277,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpGet("{id}/fines")]
+        [Authorize]
         public async Task<ActionResult<UserFineHistoryDto>> GetUserFines(Guid id, [FromQuery] bool? isPaid = null)
         {
             var user = await _context.Users.FindAsync(id);
@@ -1307,6 +1338,7 @@ namespace LibraryAPI.Controllers
         }
 
         [HttpPost("{id}/pay-fine")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
         public async Task<IActionResult> PayFine(Guid id, [FromBody] UserFinePaymentDto dto)
         {
             var user = await _context.Users.FindAsync(id);

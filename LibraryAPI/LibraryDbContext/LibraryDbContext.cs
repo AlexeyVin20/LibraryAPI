@@ -25,6 +25,8 @@ namespace LibraryAPI.Data
         public DbSet<FineRecord> FineRecords { get; set; }
         public DbSet<BookInstance> BookInstances { get; set; }
         public DbSet<Rubricator> Rubricators { get; set; }
+        // Журнал вызовов инструментов ИИ-ассистента
+        public DbSet<DialogHistory> DialogHistories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -50,6 +50,11 @@ namespace LibraryAPI.Models
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
         /// <summary>
+        /// Сообщение пользователя, отправленное ИИ.
+        /// </summary>
+        public string? Message { get; set; }
+
+        /// <summary>
         /// Пользователь, от имени которого выполнялся вызов.
         /// </summary>
         // public Guid? UserId { get; set; }

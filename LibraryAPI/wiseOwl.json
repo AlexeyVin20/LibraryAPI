@@ -1,7 +1,7 @@
 [
   {
     "name": "systemContext",
-    "description": "СИСТЕМНЫЙ КОНТЕКСТ для работы с API библиотеки.\n\n**ТЕРМИНЫ:** Слова 'резервирование', 'резерв', 'бронирование', 'бронь' являются синонимами и означают одну и ту же сущность.\n\n**СТАТУСЫ РЕЗЕРВИРОВАНИЙ:** 'Обрабатывается' (новое резервирование), 'Одобрена' (резервирование одобрено), 'Отменена' (отменено), 'Истекла' (время истекло), 'Выдана' (книга выдана), 'Возвращена' (книга возвращена), 'Просрочена' (просрочено).\n\n**ВАЖНО ПРИ РАБОТЕ С ID:** Все операции с резервированиями требуют точных GUID. Всегда сначала получайте список резервирований или детали конкретного резервирования, чтобы получить правильный ID, а затем используйте его для операций обновления/удаления. Если ID резерва указано в сокращенном виде (первые 8 символов), то нужно сначала найти все резервирования (`getAllReservations`) и определить те, что начинаются на эти восемь символов. Если у тебя нет четкой инструкции по работе с полем, получи всё, и работай с этими данными.\n\n**СЦЕНАРИИ РАБОТЫ С РЕЗЕРВИРОВАНИЯМИ:**\n*   **Выдача книги:** Если пользователь просит 'Дай(Выдай) книгу {название} пользователю {имя}', необходимо создать новое резервирование (`createReservation`) с указанием ID книги и ID пользователя со статусом 'Выдана'.\n*   **Возврат книги:** Если пользователь говорит '{имя} вернул книгу {название}' или '{имя} вернул все книги', необходимо найти все активные резервирования ('Выдана', 'Просрочена') для данного пользователя (`getUserReservations`) и изменить их статус на 'Возвращена' (`updateReservation`).\n*   **Одобрение резервирований:** При запросе 'Одобри все резервирования' или 'Одобри все резервирования для пользователя {имя}', найди все резервирования со статусом 'Обрабатывается' (`getAllReservations` или `getUserReservations`) и измени их статус на 'Одобрена' (`updateReservation`).",
+    "description": "СИСТЕМНЫЙ КОНТЕКСТ для работы с API библиотеки.\n\n**ТЕРМИНЫ:** Слова 'резервирование', 'резерв', 'бронирование', 'бронь' являются синонимами и означают одну и ту же сущность.\n\n**СТАТУСЫ РЕЗЕРВИРОВАНИЙ:** 'Обрабатывается' (новое резервирование), 'Одобрена' (резервирование одобрено), 'Отменена' (отменено), 'Истекла' (время истекло), 'Выдана' (книга выдана), 'Возвращена' (книга возвращена), 'Просрочена' (просрочено).\n\n**ВАЖНО ПРИ РАБОТЕ С ID:** Все операции с резервированиями требуют точных GUID. Всегда сначала получайте список резервирований или детали конкретного резервирования, чтобы получить правильный ID, а затем используйте его для операций обновления/удаления. Если ID резерва указано в сокращенном виде (первые 8 символов), то нужно сначала найти все резервирования (`getAllReservations`) и определить те, что начинаются на эти восемь символов. Если у тебя нет четкой инструкции по работе с полем, получи всё, и работай с этими данными. Старайся использовать максимум инстурументов за раз.\n\n**СЦЕНАРИИ РАБОТЫ С РЕЗЕРВИРОВАНИЯМИ:**\n*   **Выдача книги:** Если пользователь просит 'Дай(Выдай) книгу {название} пользователю {имя}', необходимо создать новое резервирование (`createReservation`) с указанием ID книги и ID пользователя со статусом 'Выдана'.\n*   **Возврат книги:** Если пользователь говорит '{имя} вернул книгу {название}' или '{имя} вернул все книги', необходимо найти все активные резервирования ('Выдана', 'Просрочена') для данного пользователя (`getUserReservations`) и изменить их статус на 'Возвращена' (`updateReservation`).\n*   **Одобрение резервирований:** При запросе 'Одобри все резервирования' или 'Одобри все резервирования для пользователя {имя}', найди все резервирования со статусом 'Обрабатывается' (`getAllReservations` или `getUserReservations`) и измени их статус на 'Одобрена' (`updateReservation`).",
     "parameters": {
       "type": "object",
       "properties": {},
@@ -99,7 +99,7 @@
           "description": "Массив ID ролей (опционально)"
         }
       },
-      "required": ["fullName", "email", "username", "password", "isActive", "passwordResetRequired", "loanPeriodDays", "fineAmount"]
+      "required": ["fullName", "email", "phone", "username", "password", "isActive", "passwordResetRequired", "loanPeriodDays", "fineAmount"]
     }
   },
   {
@@ -166,7 +166,7 @@
           "description": "Массив ID ролей (опционально). id роли 1 - Администратор, id роли 2 - Библиотекарь, id роли 3 - Сотрудник, id роли 4 - Гость"
         }
       },
-      "required": ["id", "fullName", "email", "username", "isActive", "passwordResetRequired", "loanPeriodDays", "fineAmount"]
+      "required": ["id", "fullName", "email", "phone", "username", "isActive", "passwordResetRequired", "loanPeriodDays", "fineAmount"]
     }
   },
   {
@@ -217,6 +217,115 @@
         }
       },
       "required": ["id"]
+    }
+  },
+  {
+    "name": "assignRoleToUser",
+    "description": "Назначает роль пользователю. Использует API эндпоинт POST /api/User/assign-role Требует роль администратора.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "ID пользователя (Guid)"
+        },
+        "roleId": {
+          "type": "integer",
+          "description": "ID роли. 1 - Администратор, 2 - Библиотекарь, 3 - Сотрудник, 4 - Гость"
+        }
+      },
+      "required": ["userId", "roleId"]
+    }
+  },
+  {
+    "name": "assignRoleToMultipleUsers",
+    "description": "Назначает роль нескольким пользователям. Использует API эндпоинт POST /api/User/assign-roles Требует роль администратора.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "userIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Массив ID пользователей (Guid)"
+        },
+        "roleId": {
+          "type": "integer",
+          "description": "ID роли. 1 - Администратор, 2 - Библиотекарь, 3 - Сотрудник, 4 - Гость"
+        }
+      },
+      "required": ["userIds", "roleId"]
+    }
+  },
+  {
+    "name": "updateUserRole",
+    "description": "Обновляет роль пользователя. Использует API эндпоинт PUT /api/User/update-role Требует роль администратора.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "ID пользователя (Guid)"
+        },
+        "oldRoleId": {
+          "type": "integer",
+          "description": "Старый ID роли"
+        },
+        "newRoleId": {
+          "type": "integer",
+          "description": "Новый ID роли"
+        }
+      },
+      "required": ["userId", "oldRoleId", "newRoleId"]
+    }
+  },
+  {
+    "name": "removeRoleFromUser",
+    "description": "Удаляет роль у пользователя. Использует API эндпоинт POST /api/User/remove-role Требует роль администратора.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "ID пользователя (Guid)"
+        },
+        "roleId": {
+          "type": "integer",
+          "description": "ID роли для удаления"
+        }
+      },
+      "required": ["userId", "roleId"]
+    }
+  },
+  {
+    "name": "removeRoleFromMultipleUsers",
+    "description": "Удаляет роль у нескольких пользователей. Использует API эндпоинт POST /api/User/remove-roles Требует роль администратора.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "userIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Массив ID пользователей (Guid)"
+        },
+        "roleId": {
+          "type": "integer",
+          "description": "ID роли для удаления"
+        }
+      },
+      "required": ["userIds", "roleId"]
+    }
+  },
+  {
+    "name": "getAllRoles",
+    "description": "Получает список всех ролей в системе с количеством пользователей в каждой роли. Использует API эндпоинт GET /api/User/roles",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": []
     }
   },
   {
@@ -1185,112 +1294,26 @@
     }
   },
   {
-    "name": "assignRoleToUser",
-    "description": "Назначает роль пользователю. Использует API эндпоинт POST /api/User/assign-role. Требует роль администратора.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "userId": {
-          "type": "string",
-          "description": "ID пользователя (Guid)"
-        },
-        "roleId": {
-          "type": "integer",
-          "description": "ID роли. 1 - Администратор, 2 - Библиотекарь, 3 - Сотрудник, 4 - Гость"
-        }
-      },
-      "required": ["userId", "roleId"]
-    }
-  },
-  {
-    "name": "assignRoleToMultipleUsers",
-    "description": "Назначает роль нескольким пользователям. Использует API эндпоинт POST /api/User/assign-roles. Требует роль администратора.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "userIds": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Массив ID пользователей (Guid)"
-        },
-        "roleId": {
-          "type": "integer",
-          "description": "ID роли. 1 - Администратор, 2 - Библиотекарь, 3 - Сотрудник, 4 - Гость"
-        }
-      },
-      "required": ["userIds", "roleId"]
-    }
-  },
-  {
-    "name": "updateUserRole",
-    "description": "Обновляет роль пользователя. Использует API эндпоинт PUT /api/User/update-role. Требует роль администратора.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "userId": {
-          "type": "string",
-          "description": "ID пользователя (Guid)"
-        },
-        "oldRoleId": {
-          "type": "integer",
-          "description": "Старый ID роли"
-        },
-        "newRoleId": {
-          "type": "integer",
-          "description": "Новый ID роли"
-        }
-      },
-      "required": ["userId", "oldRoleId", "newRoleId"]
-    }
-  },
-  {
-    "name": "removeRoleFromUser",
-    "description": "Удаляет роль у пользователя. Использует API эндпоинт POST /api/User/remove-role. Требует роль администратора.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "userId": {
-          "type": "string",
-          "description": "ID пользователя (Guid)"
-        },
-        "roleId": {
-          "type": "integer",
-          "description": "ID роли для удаления"
-        }
-      },
-      "required": ["userId", "roleId"]
-    }
-  },
-  {
-    "name": "removeRoleFromMultipleUsers",
-    "description": "Удаляет роль у нескольких пользователей. Использует API эндпоинт POST /api/User/remove-roles. Требует роль администратора.",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "userIds": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Массив ID пользователей (Guid)"
-        },
-        "roleId": {
-          "type": "integer",
-          "description": "ID роли для удаления"
-        }
-      },
-      "required": ["userIds", "roleId"]
-    }
-  },
-  {
-    "name": "getAllRoles",
-    "description": "Получает список всех ролей в системе с количеством пользователей в каждой роли. Использует API эндпоинт GET /api/User/roles",
+    "name": "getAllDialogHistory",
+    "description": "Получает всю историю вызовов инструментов ИИ-ассистента. Использует API эндпоинт GET /api/dialoghistory",
     "parameters": {
       "type": "object",
       "properties": {},
       "required": []
+    }
+  },
+  {
+    "name": "getDialogHistoryByConversationId",
+    "description": "Получает историю вызовов инструментов по conversationId. Использует API эндпоинт GET /api/dialoghistory?conversationId=",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "conversationId": {
+          "type": "string",
+          "description": "Уникальный идентификатор диалога (conversationId)"
+        }
+      },
+      "required": ["conversationId"]
     }
   }
 ] 

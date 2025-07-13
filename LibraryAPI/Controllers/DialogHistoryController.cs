@@ -66,5 +66,27 @@ namespace LibraryAPI.Controllers
             var result = await query.OrderBy(d => d.Timestamp).ToListAsync();
             return Ok(result);
         }
+
+        /// <summary>
+        /// Удалить все записи истории по conversationId.
+        /// </summary>
+        [HttpDelete]
+        public async Task<IActionResult> Delete([FromQuery] string conversationId)
+        {
+            if (string.IsNullOrWhiteSpace(conversationId))
+            {
+                return BadRequest("conversationId обязателен для удаления");
+            }
+
+            var items = _context.DialogHistories.Where(d => d.ConversationId == conversationId);
+            if (!items.Any())
+            {
+                return NotFound(new { message = "Диалог с таким conversationId не найден." });
+            }
+
+            _context.DialogHistories.RemoveRange(items);
+            await _context.SaveChangesAsync();
+            return Ok(new { Success = true });
+        }
     }
 }

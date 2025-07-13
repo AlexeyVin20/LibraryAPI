@@ -203,7 +203,7 @@ namespace LibraryAPI.Controllers
                 Status = createDto.Status,
                 Condition = createDto.Condition,
                 PurchasePrice = createDto.PurchasePrice ?? book.Price,
-                DateAcquired = createDto.DateAcquired,
+                DateAcquired = createDto.DateAcquired.ToUniversalTime(),
                 Notes = createDto.Notes ?? "Экземпляр книги",
                 ShelfId = createDto.ShelfId ?? book.ShelfId,
                 Position = createDto.Position,
@@ -256,8 +256,8 @@ namespace LibraryAPI.Controllers
             instance.Status = updateDto.Status;
             instance.Condition = updateDto.Condition;
             instance.PurchasePrice = updateDto.PurchasePrice;
-            instance.DateAcquired = updateDto.DateAcquired;
-            instance.DateLastChecked = updateDto.DateLastChecked;
+            instance.DateAcquired = updateDto.DateAcquired.ToUniversalTime();
+            instance.DateLastChecked = updateDto.DateLastChecked?.ToUniversalTime();
             instance.Notes = updateDto.Notes;
             instance.ShelfId = updateDto.ShelfId;
             instance.Position = updateDto.Position;

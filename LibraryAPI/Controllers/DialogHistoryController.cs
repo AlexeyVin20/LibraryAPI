@@ -88,5 +88,48 @@ namespace LibraryAPI.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { Success = true });
         }
+
+        /// <summary>
+        /// Поиск истории диалога по тексту сообщения или отдельному слову.
+        /// </summary>
+        [HttpGet("search")]
+        public async Task<IActionResult> Search([FromQuery] string query, [FromQuery] string? conversationId = null)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return BadRequest("Параметр поиска не может быть пустым");
+            }
+
+            var dialogQuery = _context.DialogHistories.AsQueryable();
+            if (!string.IsNullOrWhiteSpace(conversationId))
+            {
+                dialogQuery = dialogQuery.Where(d => d.ConversationId == conversationId);
+            }
+
+            // Поиск по вхождению слова или фразы в Message
+            dialogQuery = dialogQuery.Where(d => EF.Functions.Like(d.Message, $"%{query}%"));
+
+            var result = await dialogQuery.OrderBy(d => d.Timestamp).ToListAsync();
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Удалить все чаты старше 60 дней.
+        /// </summary>
+        [HttpDelete("delete-old")]
+        public async Task<IActionResult> DeleteOldChats()
+        {
+            var cutoffDate = DateTime.UtcNow.AddDays(-60);
+            var oldDialogs = _context.DialogHistories.Where(d => d.Timestamp < cutoffDate);
+            int count = await oldDialogs.CountAsync();
+            if (count == 0)
+            {
+                return Ok(new { Success = true, Deleted = 0 });
+            }
+
+            _context.DialogHistories.RemoveRange(oldDialogs);
+            await _context.SaveChangesAsync();
+            return Ok(new { Success = true, Deleted = count });
+        }
     }
 }

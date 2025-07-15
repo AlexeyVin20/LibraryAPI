@@ -12,12 +12,21 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 
 // Получаем путь к main.json из переменной окружения или используем по умолчанию
-var mainConfigPath = Environment.GetEnvironmentVariable("MAIN_CONFIG_PATH") ?? "main.json";
-Console.WriteLine($"Используется конфигурационный файл: {Path.GetFullPath(mainConfigPath)}");
+var mainConfigPaths = new[]
+{
+    "/root/main.json",
+    "/root/Synapse/main.json",
+    "/root/main.json"
+};
 
-// Настраиваем конфигурацию
 builder.Configuration.Sources.Clear();
-builder.Configuration.AddJsonFile(mainConfigPath, optional: false, reloadOnChange: true);
+
+foreach (var path in mainConfigPaths)
+{
+    builder.Configuration.AddJsonFile(path, optional: true, reloadOnChange: true);
+    Console.WriteLine($"Пробуем использовать конфигурационный файл: {Path.GetFullPath(path)}");
+}
+
 // Добавляем appsettings.json как дополнительный источник (если нужен)
 builder.Configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
 // Добавляем переменные окружения как последний источник

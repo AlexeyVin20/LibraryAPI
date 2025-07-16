@@ -16,7 +16,8 @@ var mainConfigPaths = new[]
 {
     "/root/main.json",
     "/root/Synapse/main.json",
-    "/root/main.json"
+    "/root/main.json",
+    "main.json"
 };
 
 builder.Configuration.Sources.Clear();

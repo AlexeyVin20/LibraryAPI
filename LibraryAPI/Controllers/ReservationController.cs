@@ -106,7 +106,8 @@ namespace LibraryAPI.Controllers
                 return (true, null, bestAvailable);
             }
 
-            return (true, null, null); // Нет доступных экземпляров, но это не ошибка
+            // --- ВАЖНО: теперь возвращаем ошибку! ---
+            return (false, "Нет доступных экземпляров для резервирования", null);
         }
 
         /// <summary>
@@ -297,7 +298,7 @@ namespace LibraryAPI.Controllers
         #endregion
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ReservationDto>>> GetReservations([FromQuery] string status = null)
+        public async Task<ActionResult<IEnumerable<ReservationDto>>> GetReservations([FromQuery] string status = null, [FromQuery] string userId = null)
         {
             var query = _context.Reservations
                 .Include(r => r.User)
@@ -311,6 +312,11 @@ namespace LibraryAPI.Controllers
                 {
                     query = query.Where(r => r.Status == reservationStatus);
                 }
+            }
+            
+            if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out Guid userGuid))
+            {
+                query = query.Where(r => r.UserId == userGuid);
             }
             
             var reservations = await query.ToListAsync();
@@ -371,40 +377,44 @@ namespace LibraryAPI.Controllers
             // Проверяем доступность книг и обрабатываем логику очереди
             if (status == ReservationStatus.Выдана)
             {
-                if (book.AvailableCopies <= 0)
+                // Если экземпляр уже назначен (например, после "Одобрена"), не проверяем AvailableCopies
+                if (!reservation.BookInstanceId.HasValue)
                 {
-                    // Находим самую раннюю дату возврата для данной книги
-                    var earliestReturn = await _context.Reservations
-                        .Where(r => r.BookId == book.Id && 
-                               (r.Status == ReservationStatus.Одобрена || r.Status == ReservationStatus.Выдана))
-                        .OrderBy(r => r.ExpirationDate)
-                        .FirstOrDefaultAsync();
-
-                    if (earliestReturn != null)
+                    if (book.AvailableCopies <= 0)
                     {
-                        // Устанавливаем дату выдачи на дату возврата самой ранней резервации
-                        reservation.ReservationDate = earliestReturn.ExpirationDate;
-                        
-                        // Обновляем статус на "В очереди"
-                        reservation.Status = ReservationStatus.Обрабатывается;
-                        string queueNote = " (В очереди, доступна после: " + 
-                                          earliestReturn.ExpirationDate.ToString("dd.MM.yyyy") + ")";
-                        reservation.Notes = string.IsNullOrEmpty(reservation.Notes) ? 
-                                          queueNote.TrimStart() : 
-                                          reservation.Notes + queueNote;
-                        
-                        // Обновляем статус для дальнейшей обработки
-                        status = ReservationStatus.Обрабатывается;
+                        // Находим самую раннюю дату возврата для данной книги
+                        var earliestReturn = await _context.Reservations
+                            .Where(r => r.BookId == book.Id && 
+                                   (r.Status == ReservationStatus.Одобрена || r.Status == ReservationStatus.Выдана))
+                            .OrderBy(r => r.ExpirationDate)
+                            .FirstOrDefaultAsync();
+
+                        if (earliestReturn != null)
+                        {
+                            // Устанавливаем дату выдачи на дату возврата самой ранней резервации
+                            reservation.ReservationDate = earliestReturn.ExpirationDate;
+                            
+                            // Обновляем статус на "В очереди"
+                            reservation.Status = ReservationStatus.Обрабатывается;
+                            string queueNote = " (В очереди, доступна после: " + 
+                                              earliestReturn.ExpirationDate.ToString("dd.MM.yyyy") + ")";
+                            reservation.Notes = string.IsNullOrEmpty(reservation.Notes) ? 
+                                              queueNote.TrimStart() : 
+                                              reservation.Notes + queueNote;
+                            
+                            // Обновляем статус для дальнейшей обработки
+                            status = ReservationStatus.Обрабатывается;
+                        }
+                        else
+                        {
+                            return BadRequest("Нет доступных копий книги для резервации и нет информации о возвратах");
+                        }
                     }
                     else
                     {
-                        return BadRequest("Нет доступных копий книги для резервации и нет информации о возвратах");
+                        // Уменьшаем количество доступных копий только если резервация будет выдана
+                        book.AvailableCopies--;
                     }
-                }
-                else
-                {
-                    // Уменьшаем количество доступных копий только если резервация будет выдана
-                    book.AvailableCopies--;
                 }
             }
             
@@ -470,9 +480,7 @@ namespace LibraryAPI.Controllers
             // Если статус изменился с не "Выдана" на "Выдана"
             if (!wasIssued && isIssued)
             {
-                // Если экземпляр уже был назначен (зарезервирован ранее),
-                // дополнительные проверки количества доступных копий не требуются,
-                // так как сервис распределения экземпляров уже обновил их число.
+                // Если экземпляр уже был назначен (зарезервирован ранее), не проверяем AvailableCopies
                 if (!reservation.BookInstanceId.HasValue)
                 {
                     if (book.AvailableCopies <= 0)

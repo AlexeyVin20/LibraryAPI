@@ -4,6 +4,8 @@ using LibraryAPI.Models;
 using LibraryAPI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+using System.Globalization;
 
 namespace LibraryAPI.Controllers
 {
@@ -348,6 +350,66 @@ namespace LibraryAPI.Controllers
             return Ok(dto);
         }
 
+        [HttpGet("search")]
+        public async Task<ActionResult<IEnumerable<ReservationDto>>> SearchReservations(
+            [FromQuery] Guid? userId,
+            [FromQuery] Guid? bookId,
+            [FromQuery] string? status,
+            [FromQuery] DateTime? dateFrom,
+            [FromQuery] DateTime? dateTo,
+            [FromQuery] int limit = 20,
+            [FromQuery] int offset = 0)
+        {
+            var query = _context.Reservations
+                .Include(r => r.User)
+                .Include(r => r.Book)
+                .Include(r => r.BookInstance)
+                    .ThenInclude(bi => bi.Shelf)
+                .AsQueryable();
+
+            if (userId.HasValue)
+            {
+                query = query.Where(r => r.UserId == userId.Value);
+            }
+
+            if (bookId.HasValue)
+            {
+                query = query.Where(r => r.BookId == bookId.Value);
+            }
+
+            if (!string.IsNullOrEmpty(status))
+            {
+                if (Enum.TryParse<ReservationStatus>(status, true, out var reservationStatus))
+                {
+                    query = query.Where(r => r.Status == reservationStatus);
+                }
+            }
+
+            if (dateFrom.HasValue)
+            {
+                query = query.Where(r => r.ReservationDate >= dateFrom.Value);
+            }
+
+            if (dateTo.HasValue)
+            {
+                query = query.Where(r => r.ReservationDate <= dateTo.Value);
+            }
+
+            var reservations = await query
+                .Skip(offset)
+                .Take(limit)
+                .ToListAsync();
+
+            var reservationDtos = new List<ReservationDto>();
+            foreach (var reservation in reservations)
+            {
+                var dto = await ToReservationDtoWithInstance(reservation);
+                reservationDtos.Add(dto);
+            }
+
+            return Ok(reservationDtos);
+        }
+
         [HttpPost]
         public async Task<ActionResult<ReservationDto>> CreateReservation(ReservationCreateDto reservationDto)
         {
@@ -685,7 +747,108 @@ namespace LibraryAPI.Controllers
 
             _context.Reservations.Remove(reservation);
             await _context.SaveChangesAsync();
+
             return NoContent();
+        }
+
+        [HttpGet("statistics")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        public async Task<ActionResult<ReservationStatisticsDto>> GetReservationStatistics(
+            [FromQuery] DateTime? dateFrom, [FromQuery] DateTime? dateTo, [FromQuery] string groupBy = "day")
+        {
+            var query = _context.Reservations.AsQueryable();
+
+            if (dateFrom.HasValue)
+            {
+                query = query.Where(r => r.ReservationDate >= dateFrom.Value);
+            }
+
+            if (dateTo.HasValue)
+            {
+                query = query.Where(r => r.ReservationDate <= dateTo.Value);
+            }
+
+            var reservations = await query.ToListAsync();
+
+            var totalReservations = reservations.Count;
+
+            var statusDistribution = reservations
+                .GroupBy(r => r.Status.ToString())
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            var dynamics = reservations
+                .GroupBy(r => {
+                    switch (groupBy.ToLower())
+                    {
+                        case "week":
+                            return CultureInfo.CurrentCulture.Calendar.GetWeekOfYear(r.ReservationDate, CalendarWeekRule.FirstDay, DayOfWeek.Monday).ToString("00") + "/" + r.ReservationDate.Year;
+                        case "month":
+                            return r.ReservationDate.ToString("MM/yyyy");
+                        case "day":
+                        default:
+                            return r.ReservationDate.ToString("yyyy-MM-dd");
+                    }
+                })
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            var statistics = new ReservationStatisticsDto
+            {
+                TotalReservations = totalReservations,
+                StatusDistribution = statusDistribution,
+                Dynamics = dynamics
+            };
+
+            return Ok(statistics);
+        }
+
+        [HttpPut("bulk-update")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        public async Task<IActionResult> BulkUpdateReservations([FromBody] List<BulkReservationUpdateDto> updates)
+        {
+            if (updates == null || !updates.Any())
+            {
+                return BadRequest("Тело запроса не может быть пустым.");
+            }
+
+            var errors = new List<object>();
+
+            var reservationIds = updates.Select(u => u.Id).ToList();
+            var reservationsToUpdate = await _context.Reservations
+                .Where(r => reservationIds.Contains(r.Id))
+                .ToDictionaryAsync(r => r.Id);
+
+            foreach (var update in updates)
+            {
+                if (reservationsToUpdate.TryGetValue(update.Id, out var reservation))
+                {
+                    var oldStatus = reservation.Status;
+                    var newStatus = update.Status;
+
+                    var (success, errorMessage) = await HandleReservationStatusChange(reservation, oldStatus, newStatus);
+
+                    if (success)
+                    {
+                        reservation.Status = newStatus;
+                    }
+                    else
+                    {
+                        errors.Add(new { id = update.Id, error = errorMessage });
+                    }
+                }
+                else
+                {
+                    errors.Add(new { id = update.Id, error = "Резервирование не найдено." });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            if (errors.Any())
+            {
+                return StatusCode(207, new { message = "Операция завершена с ошибками.", errors });
+            }
+
+            return Ok(new { message = "Все резервации успешно обновлены." });
         }
 
         [HttpGet("book/{bookId}")]
@@ -745,6 +908,47 @@ namespace LibraryAPI.Controllers
             }
 
             return Ok(reservationDtos);
+        }
+
+        [HttpGet("overdue")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        public async Task<ActionResult<IEnumerable<ReservationDto>>> GetOverdueReservations(
+            [FromQuery] Guid? userId = null,
+            [FromQuery] int limit = 20,
+            [FromQuery] int offset = 0)
+        {
+            var query = _context.Reservations
+                .Where(r => r.Status == ReservationStatus.Просрочена);
+            if (userId.HasValue)
+                query = query.Where(r => r.UserId == userId.Value);
+
+            var overdue = await query
+                .OrderByDescending(r => r.ReservationDate)
+                .Skip(offset)
+                .Take(limit)
+                .Include(r => r.Book)
+                .Include(r => r.User)
+                .ToListAsync();
+
+            var result = overdue.Select(r => new ReservationDto
+            {
+                Id = r.Id,
+                BookId = r.BookId,
+                UserId = r.UserId,
+                ReservationDate = r.ReservationDate,
+                Status = r.Status.ToString(),
+                ExpirationDate = r.ExpirationDate,
+                Book = r.Book != null ? new BookDto
+                {
+                    Id = r.Book.Id,
+                    Title = r.Book.Title,
+                    Authors = r.Book.Authors,
+                    Genre = r.Book.Genre,
+                    ISBN = r.Book.ISBN
+                } : null
+            }).ToList();
+
+            return Ok(result);
         }
     }
 }

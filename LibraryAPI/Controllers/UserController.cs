@@ -244,6 +244,106 @@ namespace LibraryAPI.Controllers
             return NoContent();
         }
 
+        [HttpGet("statistics")]
+        [Authorize(Roles = "Администратор")]
+        public async Task<ActionResult<UserStatisticsDto>> GetUserStatistics()
+        {
+            var totalUsers = await _context.Users.CountAsync();
+            var activeUsers = await _context.Users.CountAsync(u => u.IsActive);
+            var inactiveUsers = totalUsers - activeUsers;
+
+            var rolesDistribution = await _context.UserRoles
+                .Include(ur => ur.Role)
+                .GroupBy(ur => ur.Role.Name)
+                .Select(g => new { RoleName = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.RoleName, x => x.Count);
+
+            var averageLoanPeriod = await _context.Users.AverageAsync(u => u.LoanPeriodDays);
+
+            var statistics = new UserStatisticsDto
+            {
+                TotalUsers = totalUsers,
+                ActiveUsers = activeUsers,
+                InactiveUsers = inactiveUsers,
+                RolesDistribution = rolesDistribution,
+                AverageLoanPeriodDays = averageLoanPeriod
+            };
+
+            return Ok(statistics);
+        }
+
+        [HttpGet("search")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        public async Task<ActionResult<IEnumerable<UserDto>>> SearchUsers(
+            [FromQuery] string? fullName,
+            [FromQuery] string? email,
+            [FromQuery] string? phone,
+            [FromQuery] string? username,
+            [FromQuery] bool? isActive,
+            [FromQuery] int limit = 20,
+            [FromQuery] int offset = 0)
+        {
+            var query = _context.Users
+                .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(fullName))
+            {
+                query = query.Where(u => u.FullName.Contains(fullName));
+            }
+
+            if (!string.IsNullOrEmpty(email))
+            {
+                query = query.Where(u => u.Email.Contains(email));
+            }
+
+            if (!string.IsNullOrEmpty(phone))
+            {
+                query = query.Where(u => u.Phone.Contains(phone));
+            }
+
+            if (!string.IsNullOrEmpty(username))
+            {
+                query = query.Where(u => u.Username.Contains(username));
+            }
+
+            if (isActive.HasValue)
+            {
+                query = query.Where(u => u.IsActive == isActive.Value);
+            }
+
+            var users = await query
+                .Skip(offset)
+                .Take(limit)
+                .ToListAsync();
+
+            return Ok(users.Select(u => new UserDto
+            {
+                Id = u.Id,
+                FullName = u.FullName,
+                Email = u.Email,
+                Phone = u.Phone,
+                DateRegistered = u.DateRegistered,
+                Username = u.Username,
+                PasswordHash = u.PasswordHash,
+                IsActive = u.IsActive,
+                LastLoginDate = u.LastLoginDate,
+                PasswordResetRequired = u.PasswordResetRequired,
+                BorrowedBooksCount = u.BorrowedBooksCount ?? 0,
+                MaxBooksAllowed = u.MaxBooksAllowed ?? 5,
+                LoanPeriodDays = u.LoanPeriodDays,
+                FineAmount = u.FineAmount,
+                UserRoles = u.UserRoles?.Select(ur => new UserRoleDto
+                {
+                    UserId = ur.UserId,
+                    RoleId = ur.RoleId,
+                    RoleName = ur.Role.Name
+                }).ToList(),
+                BorrowedBooks = u.BorrowedBooks
+            }));
+        }
+
         [HttpPost("change-password")]
         [Authorize]
         public async Task<IActionResult> ChangePassword([FromBody] UserChangePasswordDto dto)
@@ -1386,6 +1486,50 @@ namespace LibraryAPI.Controllers
             {
                 return BadRequest(new { message = $"Непредвиденная ошибка: {ex.Message}" });
             }
+        }
+
+        [HttpGet("{id}/recommendations")]
+        public async Task<ActionResult<IEnumerable<BookDto>>> GetUserRecommendations(
+            Guid id,
+            [FromQuery] int limit = 10,
+            [FromQuery] string? genre = null,
+            [FromQuery] bool excludeRead = true)
+        {
+            // Проверяем пользователя
+            var user = await _context.Users.FindAsync(id);
+            if (user == null)
+                return NotFound(new { Message = "Пользователь не найден" });
+
+            // Получаем ID книг, которые пользователь уже читал или резервировал
+            var readBookIds = excludeRead
+                ? await _context.Reservations.Where(r => r.UserId == id && (r.Status == ReservationStatus.Возвращена || r.Status == ReservationStatus.Выдана))
+                    .Select(r => r.BookId).Distinct().ToListAsync()
+                : new List<Guid>();
+
+            // Фильтруем книги по жанру и исключаем уже прочитанные
+            var booksQuery = _context.Books.AsQueryable();
+            if (!string.IsNullOrEmpty(genre))
+                booksQuery = booksQuery.Where(b => b.Genre == genre);
+            if (excludeRead && readBookIds.Any())
+                booksQuery = booksQuery.Where(b => !readBookIds.Contains(b.Id));
+
+            // Сортируем по популярности (по количеству резервирований)
+            var recommendedBooks = await booksQuery
+                .OrderByDescending(b => _context.Reservations.Count(r => r.BookId == b.Id))
+                .Take(limit)
+                .Select(book => new BookDto
+                {
+                    Id = book.Id,
+                    Title = book.Title,
+                    Authors = book.Authors,
+                    Genre = book.Genre ?? string.Empty,
+                    ISBN = book.ISBN,
+                    Cover = book.Cover ?? string.Empty,
+                    AvailableCopies = book.AvailableCopies
+                })
+                .ToListAsync();
+
+            return Ok(recommendedBooks);
         }
     }
 }

@@ -243,6 +243,88 @@ namespace LibraryAPI.Controllers
             return Ok(result);
         }
 
+        [HttpGet("search")]
+        public async Task<ActionResult<IEnumerable<BookDto>>> SearchBooks(
+            [FromQuery] string? title,
+            [FromQuery] string? authors,
+            [FromQuery] string? genre,
+            [FromQuery] string? Categorization,
+            [FromQuery] string? isbn,
+            [FromQuery] bool? availableCopies,
+            [FromQuery] int limit = 20,
+            [FromQuery] int offset = 0)
+        {
+            var query = _context.Books.Include(b => b.Shelf).AsQueryable();
+
+            if (!string.IsNullOrEmpty(title))
+            {
+                query = query.Where(b => b.Title.Contains(title));
+            }
+
+            if (!string.IsNullOrEmpty(authors))
+            {
+                query = query.Where(b => b.Authors.Contains(authors));
+            }
+
+            if (!string.IsNullOrEmpty(genre))
+            {
+                query = query.Where(b => b.Genre.Contains(genre));
+            }
+
+            if (!string.IsNullOrEmpty(Categorization))
+            {
+                query = query.Where(b => b.Categorization.Contains(Categorization));
+            }
+
+            if (!string.IsNullOrEmpty(isbn))
+            {
+                query = query.Where(b => b.ISBN.Contains(isbn));
+            }
+
+            if (availableCopies.HasValue && availableCopies.Value)
+            {
+                query = query.Where(b => b.AvailableCopies > 0);
+            }
+
+            var books = await query
+                .Skip(offset)
+                .Take(limit)
+                .ToListAsync();
+
+            var bookDtos = books.Select(book => new BookDto
+            {
+                Id = book.Id,
+                Title = book.Title,
+                Authors = book.Authors,
+                Genre = book.Genre ?? string.Empty,
+                Categorization = book.Categorization ?? string.Empty,
+                UDK = book.UDK ?? string.Empty,
+                BBK = book.BBK ?? string.Empty,
+                ISBN = book.ISBN,
+                Cover = book.Cover ?? string.Empty,
+                Description = book.Description ?? string.Empty,
+                Summary = book.Summary ?? string.Empty,
+                PublicationYear = book.PublicationYear,
+                Publisher = book.Publisher ?? string.Empty,
+                PageCount = book.PageCount,
+                Language = book.Language ?? string.Empty,
+                AvailableCopies = book.AvailableCopies,
+                DateAdded = book.DateAdded,
+                DateModified = book.DateModified,
+                Edition = book.Edition ?? string.Empty,
+                Price = book.Price,
+                Format = book.Format ?? string.Empty,
+                OriginalTitle = book.OriginalTitle ?? string.Empty,
+                OriginalLanguage = book.OriginalLanguage ?? string.Empty,
+                IsEbook = book.IsEbook,
+                Condition = book.Condition ?? string.Empty,
+                ShelfId = book.ShelfId,
+                Position = book.Position
+            }).ToList();
+
+            return Ok(bookDtos);
+        }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)
         {
@@ -254,6 +336,110 @@ namespace LibraryAPI.Controllers
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        [HttpGet("statistics")]
+        public async Task<ActionResult<BookStatisticsDto>> GetBookStatistics()
+        {
+            // Most popular books (top 5 by reservation count)
+            var popularBookIds = await _context.Reservations
+                .GroupBy(r => r.BookId)
+                .OrderByDescending(g => g.Count())
+                .Take(5)
+                .Select(g => g.Key)
+                .ToListAsync();
+
+            var popularBooks = await _context.Books
+                .Where(b => popularBookIds.Contains(b.Id))
+                .Select(book => new BookDto
+                {
+                    Id = book.Id,
+                    Title = book.Title,
+                    Authors = book.Authors,
+                    Genre = book.Genre ?? string.Empty,
+                    ISBN = book.ISBN,
+                    Cover = book.Cover ?? string.Empty,
+                    AvailableCopies = book.AvailableCopies
+                })
+                .ToListAsync();
+            
+            var orderedPopularBooks = popularBookIds
+                .Select(id => popularBooks.FirstOrDefault(b => b.Id == id))
+                .Where(b => b != null)
+                .ToList();
+
+            // Genre distribution
+            var genreDistribution = await _context.Books
+                .Where(b => !string.IsNullOrEmpty(b.Genre))
+                .GroupBy(b => b.Genre)
+                .ToDictionaryAsync(g => g.Key, g => g.Count());
+
+            // Availability statistics
+            var totalBooks = await _context.Books.CountAsync();
+            var availableBooks = await _context.Books.CountAsync(b => b.AvailableCopies > 0);
+            var availability = new AvailabilityStats
+            {
+                Total = totalBooks,
+                Available = availableBooks,
+                NotAvailable = totalBooks - availableBooks
+            };
+
+            var statistics = new BookStatisticsDto
+            {
+                MostPopularBooks = orderedPopularBooks,
+                GenreDistribution = genreDistribution,
+                Availability = availability
+            };
+
+            return Ok(statistics);
+        }
+
+        [HttpGet("top-popular")]
+        public async Task<ActionResult<IEnumerable<BookDto>>> GetTopPopularBooks([FromQuery] int limit = 10, [FromQuery] string period = "month")
+        {
+            DateTime startDate;
+            switch (period.ToLower())
+            {
+                case "week":
+                    startDate = DateTime.UtcNow.AddDays(-7);
+                    break;
+                case "year":
+                    startDate = DateTime.UtcNow.AddYears(-1);
+                    break;
+                case "month":
+                default:
+                    startDate = DateTime.UtcNow.AddMonths(-1);
+                    break;
+            }
+
+            var popularBookIds = await _context.Reservations
+                .Where(r => r.ReservationDate >= startDate)
+                .GroupBy(r => r.BookId)
+                .OrderByDescending(g => g.Count())
+                .Take(limit)
+                .Select(g => g.Key)
+                .ToListAsync();
+            
+            var popularBooks = await _context.Books
+                .Where(b => popularBookIds.Contains(b.Id))
+                .Select(book => new BookDto
+                {
+                    Id = book.Id,
+                    Title = book.Title,
+                    Authors = book.Authors,
+                    Genre = book.Genre ?? string.Empty,
+                    ISBN = book.ISBN,
+                    Cover = book.Cover ?? string.Empty,
+                    AvailableCopies = book.AvailableCopies
+                })
+                .ToListAsync();
+
+            var orderedPopularBooks = popularBookIds
+                .Select(id => popularBooks.FirstOrDefault(b => b.Id == id))
+                .Where(b => b != null)
+                .ToList();
+
+            return Ok(orderedPopularBooks);
         }
 
         [HttpPut("{id}/shelf/remove")]
@@ -618,6 +804,47 @@ namespace LibraryAPI.Controllers
             {
                 return BadRequest(new { Message = $"Ошибка при обновлении категоризации книги: {ex.Message}" });
             }
+        }
+
+        [HttpGet("{id}/availability")]
+        public async Task<ActionResult<BookAvailabilityDto>> GetBookAvailability(Guid id)
+        {
+            var book = await _context.Books.FindAsync(id);
+            if (book == null)
+                return NotFound(new { Message = "Книга не найдена" });
+
+            // Количество доступных экземпляров
+            var availableCount = await _context.BookInstances.CountAsync(bi => bi.BookId == id && bi.Status == "Доступна" && bi.IsActive);
+
+            // Ближайшая дата возврата (по резервированиям со статусом "Выдана")
+            var nearestReturnDate = await _context.Reservations
+                .Where(r => r.BookId == id && r.Status == ReservationStatus.Выдана && r.ExpirationDate > DateTime.UtcNow)
+                .OrderBy(r => r.ExpirationDate)
+                .Select(r => (DateTime?)r.ExpirationDate)
+                .FirstOrDefaultAsync();
+
+            // Очередь резервирований (ожидающие и одобренные)
+            var queue = await _context.Reservations
+                .Where(r => r.BookId == id && (r.Status == ReservationStatus.Обрабатывается || r.Status == ReservationStatus.Одобрена))
+                .OrderBy(r => r.ReservationDate)
+                .Join(_context.Users, r => r.UserId, u => u.Id, (r, u) => new ReservationQueueItemDto
+                {
+                    ReservationId = r.Id,
+                    UserId = u.Id,
+                    UserFullName = u.FullName,
+                    ReservationDate = r.ReservationDate,
+                    Status = r.Status.ToString()
+                })
+                .ToListAsync();
+
+            var result = new BookAvailabilityDto
+            {
+                AvailableCount = availableCount,
+                NearestReturnDate = nearestReturnDate,
+                ReservationQueue = queue
+            };
+
+            return Ok(result);
         }
     }
 

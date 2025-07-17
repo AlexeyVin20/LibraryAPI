@@ -475,6 +475,103 @@ namespace LibraryAPI.Controllers
             });
         }
 
+        [HttpPost("bulk-create")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        public async Task<IActionResult> BulkCreateInstances([FromBody] BulkCreateInstancesDto dto)
+        {
+            if (dto.Count <= 0)
+            {
+                return BadRequest("Количество должно быть больше нуля.");
+            }
+
+            var book = await _context.Books.FindAsync(dto.BookId);
+            if (book == null)
+            {
+                return NotFound($"Книга с ID {dto.BookId} не найдена.");
+            }
+            if (string.IsNullOrEmpty(book.ISBN))
+            {
+                return BadRequest("У книги отсутствует ISBN, необходимый для генерации кодов экземпляров.");
+            }
+
+            var instances = new List<BookInstance>();
+            var lastNumber = await GetLastInstanceNumber(dto.BookId, book.ISBN);
+
+            for (int i = 1; i <= dto.Count; i++)
+            {
+                var newInstance = new BookInstance
+                {
+                    Id = Guid.NewGuid(),
+                    BookId = dto.BookId,
+                    InstanceCode = $"{book.ISBN}#{(lastNumber + i):D3}",
+                    Status = dto.DefaultStatus ?? "Доступна",
+                    Condition = dto.DefaultCondition ?? "Новая",
+                    PurchasePrice = book.Price,
+                    DateAcquired = DateTime.UtcNow,
+                    IsActive = true,
+                    DateCreated = DateTime.UtcNow,
+                    DateModified = DateTime.UtcNow,
+                    ShelfId = book.ShelfId,
+                    Location = "Основной фонд"
+                };
+                instances.Add(newInstance);
+            }
+
+            await _context.BookInstances.AddRangeAsync(instances);
+            await UpdateBookAvailableCopies(dto.BookId);
+            await _context.SaveChangesAsync();
+            
+            return Ok(new { message = $"Успешно создано {instances.Count} экземпляров." });
+        }
+
+        [HttpPut("bulk-update-status")]
+        [Authorize(Roles = "Администратор,Библиотекарь")]
+        public async Task<IActionResult> BulkUpdateInstanceStatuses([FromBody] List<BulkInstanceStatusUpdateDto> updates)
+        {
+            if (updates == null || !updates.Any())
+            {
+                return BadRequest("Тело запроса не может быть пустым.");
+            }
+
+            var errors = new List<object>();
+            var bookIdsToRecalculate = new HashSet<Guid>();
+
+            var instanceIds = updates.Select(u => u.Id).ToList();
+            var instancesToUpdate = await _context.BookInstances
+                .Where(i => instanceIds.Contains(i.Id))
+                .ToListAsync();
+
+            var instanceDict = instancesToUpdate.ToDictionary(i => i.Id);
+
+            foreach (var update in updates)
+            {
+                if (instanceDict.TryGetValue(update.Id, out var instance))
+                {
+                    instance.Status = update.NewStatus;
+                    instance.DateModified = DateTime.UtcNow;
+                    bookIdsToRecalculate.Add(instance.BookId);
+                }
+                else
+                {
+                    errors.Add(new { id = update.Id, error = "Экземпляр не найден." });
+                }
+            }
+
+            foreach (var bookId in bookIdsToRecalculate)
+            {
+                await UpdateBookAvailableCopies(bookId);
+            }
+
+            await _context.SaveChangesAsync();
+
+            if (errors.Any())
+            {
+                return StatusCode(207, new { message = "Операция завершена с ошибками.", errors });
+            }
+
+            return Ok(new { message = "Статусы экземпляров успешно обновлены." });
+        }
+
         private async Task<int> GetLastInstanceNumber(Guid bookId, string isbn)
         {
             var instanceCodes = await _context.BookInstances

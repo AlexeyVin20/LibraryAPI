@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LibraryAPI.Migrations
 {
     [DbContext(typeof(LibraryDbContext))]
-    [Migration("20250701154158_NewUserModel")]
-    partial class NewUserModel
+    [Migration("20250719175039_Dialog_history3")]
+    partial class Dialog_history3
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -73,48 +73,10 @@ namespace LibraryAPI.Migrations
                     b.ToTable("Articles");
                 });
 
-            modelBuilder.Entity("LibraryAPI.Models.Author", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Biography")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<DateTime?>("DateOfBirth")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DateOfDeath")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("Nationality")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Authors");
-                });
-
             modelBuilder.Entity("LibraryAPI.Models.Book", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("AuthorId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Authors")
@@ -212,8 +174,6 @@ namespace LibraryAPI.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("AuthorId");
 
                     b.HasIndex("ShelfId");
 
@@ -335,6 +295,61 @@ namespace LibraryAPI.Migrations
                         .HasDatabaseName("IX_BorrowedBooks_UserId_BorrowDate");
 
                     b.ToTable("BorrowedBooks");
+                });
+
+            modelBuilder.Entity("LibraryAPI.Models.DialogHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AfterState")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Answer")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BeforeState")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ConversationId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Endpoint")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("HttpMethod")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Message")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Parameters")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ToolName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("TotalTokenCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DialogHistories");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.FavoriteBook", b =>
@@ -547,7 +562,22 @@ namespace LibraryAPI.Migrations
                     b.Property<DateTime?>("DeliveredAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("EmailDeliverySuccessful")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("EmailErrorMessage")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EmailRecipient")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("EmailSentAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("IsDelivered")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsEmailSent")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsRead")
@@ -682,6 +712,32 @@ namespace LibraryAPI.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Roles");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Description = "Администратор системы",
+                            Name = "Администратор"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Description = "Библиотекарь",
+                            Name = "Библиотекарь"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Description = "Сотрудники МНТК",
+                            Name = "Сотрудник"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Description = "Гости библиотеки",
+                            Name = "Гость"
+                        });
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.Shelf", b =>
@@ -760,6 +816,15 @@ namespace LibraryAPI.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("PasswordResetRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PasswordResetToken")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("PasswordResetTokenExpires")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Phone")
                         .IsRequired()
                         .HasColumnType("text");
@@ -772,6 +837,24 @@ namespace LibraryAPI.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Users");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
+                            BorrowedBooksCount = 0,
+                            DateRegistered = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Email = "admin@library.com",
+                            FineAmount = 0m,
+                            FullName = "Системный Администратор",
+                            IsActive = true,
+                            LoanPeriodDays = 30,
+                            MaxBooksAllowed = 100,
+                            PasswordHash = "$2a$12$qs8l2GwWrvN3h2MDgxrZ.uHsNaaKWvjtJXCDrDNDM6gcOeC05vA8u",
+                            PasswordResetRequired = false,
+                            Phone = "+7 (999) 999-99-99",
+                            Username = "admin"
+                        });
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.UserRole", b =>
@@ -787,6 +870,34 @@ namespace LibraryAPI.Migrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("UserRoles");
+
+                    b.HasData(
+                        new
+                        {
+                            UserId = new Guid("11111111-1111-1111-1111-111111111111"),
+                            RoleId = 1
+                        });
+                });
+
+            modelBuilder.Entity("Rubricator", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Rubricators");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.Article", b =>
@@ -802,10 +913,6 @@ namespace LibraryAPI.Migrations
 
             modelBuilder.Entity("LibraryAPI.Models.Book", b =>
                 {
-                    b.HasOne("LibraryAPI.Models.Author", null)
-                        .WithMany("Books")
-                        .HasForeignKey("AuthorId");
-
                     b.HasOne("LibraryAPI.Models.Shelf", "Shelf")
                         .WithMany("Books")
                         .HasForeignKey("ShelfId");
@@ -977,11 +1084,6 @@ namespace LibraryAPI.Migrations
                     b.Navigation("Role");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("LibraryAPI.Models.Author", b =>
-                {
-                    b.Navigation("Books");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.Issue", b =>

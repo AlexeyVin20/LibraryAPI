@@ -5,15 +5,21 @@
 namespace LibraryAPI.Migrations
 {
     /// <inheritdoc />
-    public partial class AI_history3 : Migration
+    public partial class Dialog_history3 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>(
-                name: "Message",
+                name: "Answer",
                 table: "DialogHistories",
                 type: "text",
+                nullable: true);
+
+            migrationBuilder.AddColumn<int>(
+                name: "TotalTokenCount",
+                table: "DialogHistories",
+                type: "integer",
                 nullable: true);
         }
 
@@ -21,7 +27,11 @@ namespace LibraryAPI.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "Message",
+                name: "Answer",
+                table: "DialogHistories");
+
+            migrationBuilder.DropColumn(
+                name: "TotalTokenCount",
                 table: "DialogHistories");
         }
     }

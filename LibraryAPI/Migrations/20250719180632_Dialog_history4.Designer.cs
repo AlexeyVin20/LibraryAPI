@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LibraryAPI.Migrations
 {
     [DbContext(typeof(LibraryDbContext))]
-    [Migration("20250713190410_AI_history3")]
-    partial class AI_history3
+    [Migration("20250719180632_Dialog_history4")]
+    partial class Dialog_history4
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -73,48 +73,10 @@ namespace LibraryAPI.Migrations
                     b.ToTable("Articles");
                 });
 
-            modelBuilder.Entity("LibraryAPI.Models.Author", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Biography")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<DateTime?>("DateOfBirth")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DateOfDeath")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("Nationality")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Authors");
-                });
-
             modelBuilder.Entity("LibraryAPI.Models.Book", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("AuthorId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Authors")
@@ -212,8 +174,6 @@ namespace LibraryAPI.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("AuthorId");
 
                     b.HasIndex("ShelfId");
 
@@ -349,6 +309,9 @@ namespace LibraryAPI.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Answer")
+                        .HasColumnType("text");
+
                     b.Property<string>("BeforeState")
                         .IsRequired()
                         .HasColumnType("text");
@@ -363,8 +326,8 @@ namespace LibraryAPI.Migrations
 
                     b.Property<string>("HttpMethod")
                         .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("Message")
                         .HasColumnType("text");
@@ -380,6 +343,9 @@ namespace LibraryAPI.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("TotalTokenCount")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -947,10 +913,6 @@ namespace LibraryAPI.Migrations
 
             modelBuilder.Entity("LibraryAPI.Models.Book", b =>
                 {
-                    b.HasOne("LibraryAPI.Models.Author", null)
-                        .WithMany("Books")
-                        .HasForeignKey("AuthorId");
-
                     b.HasOne("LibraryAPI.Models.Shelf", "Shelf")
                         .WithMany("Books")
                         .HasForeignKey("ShelfId");
@@ -1122,11 +1084,6 @@ namespace LibraryAPI.Migrations
                     b.Navigation("Role");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("LibraryAPI.Models.Author", b =>
-                {
-                    b.Navigation("Books");
                 });
 
             modelBuilder.Entity("LibraryAPI.Models.Issue", b =>

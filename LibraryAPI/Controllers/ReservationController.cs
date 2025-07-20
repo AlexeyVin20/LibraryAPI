@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using System.Globalization;
+using System.Linq.Expressions;
 
 namespace LibraryAPI.Controllers
 {
@@ -367,32 +368,58 @@ namespace LibraryAPI.Controllers
                     .ThenInclude(bi => bi.Shelf)
                 .AsQueryable();
 
+            // Создаем список условий для поиска
+            var conditions = new List<Expression<Func<Reservation, bool>>>();
+
             if (userId.HasValue)
             {
-                query = query.Where(r => r.UserId == userId.Value);
+                conditions.Add(r => r.UserId == userId.Value);
             }
 
             if (bookId.HasValue)
             {
-                query = query.Where(r => r.BookId == bookId.Value);
+                conditions.Add(r => r.BookId == bookId.Value);
             }
 
             if (!string.IsNullOrEmpty(status))
             {
                 if (Enum.TryParse<ReservationStatus>(status, true, out var reservationStatus))
                 {
-                    query = query.Where(r => r.Status == reservationStatus);
+                    conditions.Add(r => r.Status == reservationStatus);
                 }
             }
 
             if (dateFrom.HasValue)
             {
-                query = query.Where(r => r.ReservationDate >= dateFrom.Value);
+                conditions.Add(r => r.ReservationDate >= dateFrom.Value);
             }
 
             if (dateTo.HasValue)
             {
-                query = query.Where(r => r.ReservationDate <= dateTo.Value);
+                conditions.Add(r => r.ReservationDate <= dateTo.Value);
+            }
+
+            // Применяем AND логику для всех условий (так как это фильтры, а не поиск по тексту)
+            if (conditions.Any())
+            {
+                var parameter = Expression.Parameter(typeof(Reservation), "r");
+                Expression combinedCondition = null;
+                
+                foreach (var condition in conditions)
+                {
+                    var invokedCondition = Expression.Invoke(condition, parameter);
+                    if (combinedCondition == null)
+                    {
+                        combinedCondition = invokedCondition;
+                    }
+                    else
+                    {
+                        combinedCondition = Expression.AndAlso(combinedCondition, invokedCondition);
+                    }
+                }
+                
+                var lambda = Expression.Lambda<Func<Reservation, bool>>(combinedCondition, parameter);
+                query = query.Where(lambda);
             }
 
             var reservations = await query

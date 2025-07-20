@@ -306,6 +306,9 @@ namespace LibraryAPI.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Answer")
+                        .HasColumnType("text");
+
                     b.Property<string>("BeforeState")
                         .IsRequired()
                         .HasColumnType("text");
@@ -320,8 +323,8 @@ namespace LibraryAPI.Migrations
 
                     b.Property<string>("HttpMethod")
                         .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("Message")
                         .HasColumnType("text");
@@ -337,6 +340,9 @@ namespace LibraryAPI.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("TotalTokenCount")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 

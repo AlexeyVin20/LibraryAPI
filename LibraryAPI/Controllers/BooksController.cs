@@ -6,6 +6,8 @@ using LibraryAPI.Models;
 using LibraryAPI.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
+using System.Linq.Expressions;
 
 namespace LibraryAPI.Controllers
 {
@@ -256,31 +258,58 @@ namespace LibraryAPI.Controllers
         {
             var query = _context.Books.Include(b => b.Shelf).AsQueryable();
 
+            // Создаем список условий для текстовых полей
+            var textConditions = new List<Expression<Func<Book, bool>>>();
+
             if (!string.IsNullOrEmpty(title))
             {
-                query = query.Where(b => b.Title.Contains(title));
+                textConditions.Add(b => b.Title.Contains(title));
             }
 
             if (!string.IsNullOrEmpty(authors))
             {
-                query = query.Where(b => b.Authors.Contains(authors));
+                textConditions.Add(b => b.Authors.Contains(authors));
             }
 
             if (!string.IsNullOrEmpty(genre))
             {
-                query = query.Where(b => b.Genre.Contains(genre));
+                textConditions.Add(b => b.Genre.Contains(genre));
             }
 
             if (!string.IsNullOrEmpty(Categorization))
             {
-                query = query.Where(b => b.Categorization.Contains(Categorization));
+                textConditions.Add(b => b.Categorization.Contains(Categorization));
             }
 
             if (!string.IsNullOrEmpty(isbn))
             {
-                query = query.Where(b => b.ISBN.Contains(isbn));
+                textConditions.Add(b => b.ISBN.Contains(isbn));
             }
 
+            // Применяем OR логику для текстовых полей
+            if (textConditions.Any())
+            {
+                var parameter = Expression.Parameter(typeof(Book), "b");
+                Expression combinedCondition = null;
+                
+                foreach (var condition in textConditions)
+                {
+                    var invokedCondition = Expression.Invoke(condition, parameter);
+                    if (combinedCondition == null)
+                    {
+                        combinedCondition = invokedCondition;
+                    }
+                    else
+                    {
+                        combinedCondition = Expression.OrElse(combinedCondition, invokedCondition);
+                    }
+                }
+                
+                var lambda = Expression.Lambda<Func<Book, bool>>(combinedCondition, parameter);
+                query = query.Where(lambda);
+            }
+
+            // Применяем фильтр по доступности (AND логика)
             if (availableCopies.HasValue && availableCopies.Value)
             {
                 query = query.Where(b => b.AvailableCopies > 0);

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authorization;
+using System.Linq.Expressions;
 
 namespace LibraryAPI.Controllers
 {
@@ -288,26 +289,53 @@ namespace LibraryAPI.Controllers
                 .ThenInclude(ur => ur.Role)
                 .AsQueryable();
 
+            // Создаем список условий для текстовых полей
+            var textConditions = new List<Expression<Func<User, bool>>>();
+
             if (!string.IsNullOrEmpty(fullName))
             {
-                query = query.Where(u => u.FullName.Contains(fullName));
+                textConditions.Add(u => u.FullName.Contains(fullName));
             }
 
             if (!string.IsNullOrEmpty(email))
             {
-                query = query.Where(u => u.Email.Contains(email));
+                textConditions.Add(u => u.Email.Contains(email));
             }
 
             if (!string.IsNullOrEmpty(phone))
             {
-                query = query.Where(u => u.Phone.Contains(phone));
+                textConditions.Add(u => u.Phone.Contains(phone));
             }
 
             if (!string.IsNullOrEmpty(username))
             {
-                query = query.Where(u => u.Username.Contains(username));
+                textConditions.Add(u => u.Username.Contains(username));
             }
 
+            // Применяем OR логику для текстовых полей
+            if (textConditions.Any())
+            {
+                var parameter = Expression.Parameter(typeof(User), "u");
+                Expression combinedCondition = null;
+                
+                foreach (var condition in textConditions)
+                {
+                    var invokedCondition = Expression.Invoke(condition, parameter);
+                    if (combinedCondition == null)
+                    {
+                        combinedCondition = invokedCondition;
+                    }
+                    else
+                    {
+                        combinedCondition = Expression.OrElse(combinedCondition, invokedCondition);
+                    }
+                }
+                
+                var lambda = Expression.Lambda<Func<User, bool>>(combinedCondition, parameter);
+                query = query.Where(lambda);
+            }
+
+            // Применяем фильтр по активности (AND логика)
             if (isActive.HasValue)
             {
                 query = query.Where(u => u.IsActive == isActive.Value);

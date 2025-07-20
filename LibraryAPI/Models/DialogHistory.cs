@@ -26,7 +26,7 @@ namespace LibraryAPI.Models
         public string ToolName { get; set; }
 
         [Required]
-        [MaxLength(10)]
+        [MaxLength(20)]
         public string HttpMethod { get; set; }
 
         [Required]
@@ -53,6 +53,16 @@ namespace LibraryAPI.Models
         /// Сообщение пользователя, отправленное ИИ.
         /// </summary>
         public string? Message { get; set; }
+
+        /// <summary>
+        /// Ответ ИИ-ассистента.
+        /// </summary>
+        public string? Answer { get; set; }
+
+        /// <summary>
+        /// Общее количество токенов, использованных в диалоге.
+        /// </summary>
+        public int? TotalTokenCount { get; set; }
 
         /// <summary>
         /// Пользователь, от имени которого выполнялся вызов.
